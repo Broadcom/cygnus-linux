@@ -59,6 +59,8 @@ struct dw8250_data {
 	u8			usr_reg;
 	int			last_mcr;
 	int			line;
+	int			msr_mask_on;
+	int			msr_mask_off;
 	struct clk		*clk;
 	struct clk		*pclk;
 	struct reset_control	*rst;
@@ -79,6 +81,12 @@ static inline int dw8250_modify_msr(struct uart_port *p, int offset, int value)
 	if (offset == UART_MSR && d->last_mcr & UART_MCR_AFE) {
 		value |= UART_MSR_CTS;
 		value &= ~UART_MSR_DCTS;
+	}
+
+	/* Override any modem control signals if needed */
+	if (offset == UART_MSR) {
+		value |= d->msr_mask_on;
+		value &= ~d->msr_mask_off;
 	}
 
 	return value;
@@ -290,6 +298,8 @@ static int dw8250_probe_of(struct uart_port *p,
 	u32			val;
 	bool has_ucv = true;
 	int id;
+	int msr_cnt, i;
+	const char *inp_name;
 
 #ifdef CONFIG_64BIT
 	if (of_device_is_compatible(np, "cavium,octeon-3860-uart")) {
@@ -333,6 +343,37 @@ static int dw8250_probe_of(struct uart_port *p,
 	id = of_alias_get_id(np, "serial");
 	if (id >= 0)
 		p->line = id;
+
+	msr_cnt = of_property_count_strings(np, "msr-override");
+
+	if (msr_cnt > 0) {
+		for (i = 0; i < msr_cnt; i++) {
+			of_property_read_string_index(np, "msr-override", i,
+				&inp_name);
+
+			if (!strcmp("dcd", inp_name)) {
+				/* Always report DCD as active */
+				data->msr_mask_on |= UART_MSR_DCD;
+				data->msr_mask_off |= UART_MSR_DDCD;
+			} else if (!strcmp("dsr", inp_name)) {
+				/* Always report DSR as active */
+				data->msr_mask_on |= UART_MSR_DSR;
+				data->msr_mask_off |= UART_MSR_DDSR;
+			} else if (!strcmp("cts", inp_name)) {
+				/* Always report CTS as active */
+				data->msr_mask_on |= UART_MSR_CTS;
+				data->msr_mask_off |= UART_MSR_DCTS;
+			} else if (!strcmp("ri", inp_name)) {
+				/* Always report Ring indicator as inactive */
+				data->msr_mask_off |= UART_MSR_RI;
+				data->msr_mask_off |= UART_MSR_TERI;
+			} else {
+				dev_err(p->dev,
+					"Ignore unknown msr-override %s\n",
+					inp_name);
+			}
+		}
+	}
 
 	/* clock got configured through clk api, all done */
 	if (p->uartclk)
