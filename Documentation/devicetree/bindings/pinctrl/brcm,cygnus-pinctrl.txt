@@ -1,0 +1,92 @@
+Broadcom Cygnus Pin Controller
+
+The Cygnus pin controller supports setting the alternate functions of groups
+of pins. Pinmux configuration on individual pins is not supported by the
+Cygnus A0 SoC.
+
+Required properties:
+
+- compatible:
+    Must be "brcm,cygnus-pinctrl"
+
+- reg:
+    Define the base and range of the I/O address space that contain the Cygnus
+pin control registers
+
+- brcm,groups:
+    This can be strings of one or more group names. This defines the group(s)
+that one wants to configure
+
+- brcm,function:
+    This is the alternate function that one wants to configure to. Valid
+alternate functions are "alt1", "alt2", "alt3", "alt4"
+
+Each child node represents a configuration. Client devices reference the the
+child node to enable the mux configuration.
+
+For example:
+
+	pinctrl: pinctrl@0x0301d0c8 {
+		compatible = "brcm,cygnus-pinctrl";
+		reg = <0x0301d0c8 0x2c>;
+
+		i2s_0: i2s_0 {
+			brcm,groups = "smart_card0", "smart_card0_fcb";
+			brcm,function = "alt2";
+		};
+
+		i2s_1: i2s_1 {
+			brcm,groups = "smart_card1", "smart_card1_fcb";
+			brcm,function = "alt2";
+		};
+
+		spi_0: spi_0 {
+			brcm,groups = "spi0";
+			brcm,function = "alt1";
+		};
+	}
+
+	spi0@18028000 {
+			compatible = "arm,pl022", "arm,primecell";
+			reg = <0x18028000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&spi_0>;
+			clocks = <&axi81_clk>;
+			clock-names = "apb_pclk";
+	};
+
+Consider the following snapshot of Cygnus pinmux table:
+
+number    pin            group              alt1             alt2        alt3        alt4
+------    ---            ----               ----             ----        ----        ----
+42        sc0_clk        smart_card0        SMART CARD0      I2S_0       N/A         chip_gpio24
+43        sc0_cmdvcc_l   smart_card0        SMART CARD0      I2S_0       N/A         STRAP
+44        sc0_detect     smart_card0        SMART CARD0      I2S_0       N/A         chip_gpio25
+45        sc0_fcb        smart_card0_fcb    SMART CARD0_FCB  I2S_0       N/A         chip_gpio26
+46        sc0_io         smart_card0        SMART CARD0      I2S_0       N/A         chip_gpio27
+47        sc0_rst_l      smart_card0        SMART CARD0      SPDIF       N/A         STRAP
+
+Note due to limitation of the Cygnus hardware, pinmux configuration can only
+be group based. To enable I2S_0 function, one needs the following child node
+configuration:
+
+	i2s_0: i2s_0 {
+		brcm,groups = "smart_card0", "smart_card0_fcb";
+		brcm,function = "alt2";
+	};
+
+This tells the Cygnus pin controller to configure groups "smart_card0" and
+"smart_card0_fcb" to I2S_0. With this configuration, pins 42, 43, 44, 45, 46
+become I2S_0, and pin 47 becomes SPDIF
+
+Consider another example, that one wants to configure the above pins as GPIO:
+
+	gpio_24_27: gpio_24_27 {
+		brcm,groups = "smart_card0", "smart_card0_fcb";
+		brcm,function = "alt4";
+	};
+
+With the above configuration, pins 42, 44, 45, 46 become GPIO, and 43 and 47
+become reserved for STRAP
