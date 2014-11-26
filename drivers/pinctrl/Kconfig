@@ -85,6 +85,13 @@ config PINCTRL_BCM281XX
 	  BCM28145, and BCM28155 SoCs.  This driver requires the pinctrl
 	  framework.  GPIO is provided by a separate GPIO driver.
 
+config PINCTRL_BCM_CYGNUS
+	bool "Broadcom Cygnus pinctrl driver"
+	depends on (ARCH_BCM_CYGNUS || COMPILE_TEST)
+	select PINMUX
+	select PINCONF
+	select GENERIC_PINCONF
+
 config PINCTRL_LANTIQ
 	bool
 	depends on LANTIQ
