@@ -41,6 +41,44 @@
 /* This is limited to 16 characters when displayed by X startup */
 static const char *clcd_name = "CLCD FB";
 
+struct string_lookup {
+	const char	*string;
+	const u32	val;
+};
+
+static const struct string_lookup tim2_lookups[] = {
+	{ "TIM2_CLKSEL",	TIM2_CLKSEL},
+	{ "TIM2_IOE",		TIM2_IOE},
+	{ NULL, 0},
+};
+
+static u32 parse_setting(const struct string_lookup *lookup, const char *name)
+{
+	int i = 0;
+
+	while (lookup[i].string != NULL) {
+		if (strcmp(lookup[i].string, name) == 0)
+			return lookup[i].val;
+		++i;
+	}
+	return 0;
+}
+
+static u32 get_string_lookup(struct device_node *node, const char *name,
+		      const struct string_lookup *lookup)
+{
+	const char *string;
+	int count, i;
+	u32 ret = 0;
+
+	count = of_property_count_strings(node, name);
+	if (count >= 0)
+		for (i = 0; i < count; i++)
+			if (of_property_read_string_index(node, name, i,
+					&string) == 0)
+				ret |= parse_setting(lookup, string);
+	return ret;
+}
 /*
  * Unfortunately, the enable/disable functions may be called either from
  * process or IRQ context, and we _need_ to delay.  This is _not_ good.
@@ -625,6 +663,9 @@ static int clcdfb_of_init_tft_panel(struct clcd_fb *fb, u32 r0, u32 g0, u32 b0)
 
 	/* Bypass pixel clock divider, data output on the falling edge */
 	fb->panel->tim2 = TIM2_BCD | TIM2_IPC;
+
+	fb->panel->tim2 |= get_string_lookup(fb->dev->dev.of_node,
+					"tim2", tim2_lookups);
 
 	/* TFT display, vert. comp. interrupt at the start of the back porch */
 	fb->panel->cntl |= CNTL_LCDTFT | CNTL_LCDVCOMP(1);

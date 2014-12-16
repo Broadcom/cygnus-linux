@@ -35,6 +35,21 @@ Optional properties:
 	cell's memory interface can handle; if not present, the memory
 	interface is fast enough to handle all possible video modes
 
+- tim2: Used to set certain bits in LCDTiming2 register.
+	It can be TIM2_CLKSEL or TIM2_IOE or both
+
+	TIM2_CLKSEL: This bit drives the CLCDCLKSEL signal. It is the select
+	signal for the external LCD clock multiplexor.
+
+	TIM2_IOE: Invert output enable:
+	0 = CLAC output pin is active HIGH in TFT mode
+	1 = CLAC output pin is active LOW in TFT mode.
+	This bit selects the active polarity of the output enable signal in
+	TFT mode. In this mode, the CLAC pin is an enable that indicates to
+	the LCD panel when valid display data is available. In active
+	display mode, data is driven onto the LCD data lines at the
+	programmed edge of CLCP when CLAC is in its active state.
+
 Required sub-nodes:
 
 - port: describes LCD panel signals, following the common binding
@@ -76,7 +91,7 @@ Example:
 		clocks = <&oscclk1>, <&oscclk2>;
 		clock-names = "clcdclk", "apb_pclk";
 		max-memory-bandwidth = <94371840>; /* Bps, 1024x768@60 16bpp */
-
+		tim2 = "TIM2_CLKSEL";
 		port {
 			clcd_pads: endpoint {
 				remote-endpoint = <&clcd_panel>;
