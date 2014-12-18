@@ -50,6 +50,10 @@ Optional properties:
 	display mode, data is driven onto the LCD data lines at the
 	programmed edge of CLCP when CLAC is in its active state.
 
+- yres_virtual: Virtual Y resolution,
+	It can be used to configure a virtual y resolution. It
+	must be a value larger than the actual y resolution.
+
 Required sub-nodes:
 
 - port: describes LCD panel signals, following the common binding

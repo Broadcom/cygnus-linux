@@ -454,6 +454,18 @@ static int clcdfb_mmap(struct fb_info *info,
 	return ret;
 }
 
+static int clcdfb_pan_display(struct fb_var_screeninfo *var,
+			      struct fb_info *info)
+{
+	struct clcd_fb *fb;
+
+	info->var = *var;
+	fb = to_clcd(info);
+	clcdfb_set_start(fb);
+
+	return 0;
+}
+
 static struct fb_ops clcdfb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_check_var	= clcdfb_check_var,
@@ -464,6 +476,7 @@ static struct fb_ops clcdfb_ops = {
 	.fb_copyarea	= cfb_copyarea,
 	.fb_imageblit	= cfb_imageblit,
 	.fb_mmap	= clcdfb_mmap,
+	.fb_pan_display	= clcdfb_pan_display,
 };
 
 static int clcdfb_register(struct clcd_fb *fb)
@@ -517,14 +530,16 @@ static int clcdfb_register(struct clcd_fb *fb)
 	fb->fb.fix.type		= FB_TYPE_PACKED_PIXELS;
 	fb->fb.fix.type_aux	= 0;
 	fb->fb.fix.xpanstep	= 0;
-	fb->fb.fix.ypanstep	= 0;
+	if (fb->fb.var.yres_virtual > fb->panel->mode.yres)
+		fb->fb.fix.ypanstep = 1;
+	else
+		fb->fb.fix.ypanstep = 0;
 	fb->fb.fix.ywrapstep	= 0;
 	fb->fb.fix.accel	= FB_ACCEL_NONE;
 
 	fb->fb.var.xres		= fb->panel->mode.xres;
 	fb->fb.var.yres		= fb->panel->mode.yres;
 	fb->fb.var.xres_virtual	= fb->panel->mode.xres;
-	fb->fb.var.yres_virtual	= fb->panel->mode.yres;
 	fb->fb.var.bits_per_pixel = fb->panel->bpp;
 	fb->fb.var.grayscale	= fb->panel->grayscale;
 	fb->fb.var.pixclock	= fb->panel->mode.pixclock;
@@ -690,7 +705,7 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 	struct device_node *endpoint;
 	int err;
 	unsigned int bpp;
-	u32 max_bandwidth;
+	u32 max_bandwidth, yres_virtual;
 	u32 tft_r0b0g0[3];
 
 	fb->panel = devm_kzalloc(&fb->dev->dev, sizeof(*fb->panel), GFP_KERNEL);
@@ -729,6 +744,14 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 #endif
 	fb->panel->width = -1;
 	fb->panel->height = -1;
+
+	/* if yres_virtual property is not specified in device tree,
+	 * set it as the actual y resolution */
+	if (of_property_read_u32(fb->dev->dev.of_node,
+				"yres_virtual", &yres_virtual))
+		fb->fb.var.yres_virtual = fb->panel->mode.yres;
+	else
+		fb->fb.var.yres_virtual = yres_virtual;
 
 	if (of_property_read_u32_array(endpoint,
 			"arm,pl11x,tft-r0g0b0-pads",
@@ -797,7 +820,7 @@ static int clcdfb_of_dma_setup(struct clcd_fb *fb)
 	if (err)
 		return err;
 
-	framesize = fb->panel->mode.xres * fb->panel->mode.yres *
+	framesize = fb->panel->mode.xres * fb->fb.var.yres_virtual *
 			fb->panel->bpp / 8;
 	fb->fb.screen_base = dma_alloc_coherent(&fb->dev->dev, framesize,
 			&dma, GFP_KERNEL);
