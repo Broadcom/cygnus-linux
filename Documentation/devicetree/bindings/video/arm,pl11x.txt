@@ -10,14 +10,6 @@ Required properties:
 
 - reg: base address and size of the control registers block
 
-- interrupt-names: either the single entry "combined" representing a
-	combined interrupt output (CLCDINTR), or the four entries
-	"mbe", "vcomp", "lnbu", "fuf" representing the individual
-	CLCDMBEINTR, CLCDVCOMPINTR, CLCDLNBUINTR, CLCDFUFINTR interrupts
-
-- interrupts: contains an interrupt specifier for each entry in
-	interrupt-names
-
 - clock-names: should contain "clcdclk" and "apb_pclk"
 
 - clocks: contains phandle and clock specifier pairs for the entries
@@ -53,6 +45,9 @@ Optional properties:
 - yres_virtual: Virtual Y resolution,
 	It can be used to configure a virtual y resolution. It
 	must be a value larger than the actual y resolution.
+
+- interrupts: contains an interrupt specifier for the clcd vcomp interrupt
+	 This is required for the driver to handle FBIO_WAITFORVSYNC ioctls.
 
 Required sub-nodes:
 

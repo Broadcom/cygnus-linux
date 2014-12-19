@@ -30,6 +30,8 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_graph.h>
+#include <linux/of_irq.h>
+#include <linux/interrupt.h>
 #include <video/display_timing.h>
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
@@ -466,6 +468,73 @@ static int clcdfb_pan_display(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+static int clcdfb_ioctl(struct fb_info *info,
+			unsigned int cmd, unsigned long args)
+{
+	struct clcd_fb *fb = to_clcd(info);
+	int retval = 0;
+	u32 val, ienb_val;
+
+	switch (cmd) {
+	case FBIO_WAITFORVSYNC:{
+		if (fb->lcd_irq <= 0) {
+			retval = -EINVAL;
+			break;
+		}
+		/* disable Vcomp interrupts */
+		ienb_val = readl(fb->regs + fb->off_ienb);
+		ienb_val &= ~CLCD_PL111_IENB_VCOMP;
+		writel(ienb_val, fb->regs + fb->off_ienb);
+
+		/* clear Vcomp interrupt */
+		writel(CLCD_PL111_IENB_VCOMP, fb->regs + CLCD_PL111_ICR);
+
+		/* Generate Interrupt at the start of Vsync */
+		reinit_completion(&fb->wait);
+		val = readl(fb->regs +  fb->off_cntl);
+		val &= ~(CNTL_LCDVCOMP(3));
+		writel(val, fb->regs + fb->off_cntl);
+
+		/* enable Vcomp interrupt */
+		ienb_val = readl(fb->regs + fb->off_ienb);
+		ienb_val |= CLCD_PL111_IENB_VCOMP;
+		writel(ienb_val, fb->regs + fb->off_ienb);
+		if (!wait_for_completion_interruptible_timeout
+			(&fb->wait, HZ/10))
+			retval = -ETIMEDOUT;
+		break;
+	}
+	default:
+		retval = -ENOIOCTLCMD;
+		break;
+	}
+	return retval;
+}
+
+static irqreturn_t clcd_interrupt(int irq, void *data)
+{
+	struct clcd_fb *fb = data;
+	u32 val;
+
+	/* check for vsync interrupt */
+	val = readl(fb->regs + CLCD_PL111_MIS);
+
+	if (val & CLCD_PL111_IENB_VCOMP) {
+		val = readl(fb->regs + fb->off_ienb);
+		val &= ~CLCD_PL111_IENB_VCOMP;
+
+		/* disable Vcomp interrupts */
+		writel(val, fb->regs + fb->off_ienb);
+
+		/* clear Vcomp interrupt */
+		writel(CLCD_PL111_IENB_VCOMP, fb->regs + CLCD_PL111_ICR);
+
+		complete(&fb->wait);
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+
 static struct fb_ops clcdfb_ops = {
 	.owner		= THIS_MODULE,
 	.fb_check_var	= clcdfb_check_var,
@@ -477,6 +546,7 @@ static struct fb_ops clcdfb_ops = {
 	.fb_imageblit	= cfb_imageblit,
 	.fb_mmap	= clcdfb_mmap,
 	.fb_pan_display	= clcdfb_pan_display,
+	.fb_ioctl	= clcdfb_ioctl,
 };
 
 static int clcdfb_register(struct clcd_fb *fb)
@@ -752,6 +822,18 @@ static int clcdfb_of_init_display(struct clcd_fb *fb)
 		fb->fb.var.yres_virtual = fb->panel->mode.yres;
 	else
 		fb->fb.var.yres_virtual = yres_virtual;
+
+	fb->lcd_irq = irq_of_parse_and_map(fb->dev->dev.of_node, 0);
+	if (fb->lcd_irq > 0) {
+		err = devm_request_irq(&fb->dev->dev,
+					fb->lcd_irq, clcd_interrupt,
+					IRQF_SHARED, "clcd", fb);
+		if (err < 0) {
+			dev_err(&fb->dev->dev, "unable to register CLCD interrupt\n");
+			return err;
+		}
+		init_completion(&fb->wait);
+	}
 
 	if (of_property_read_u32_array(endpoint,
 			"arm,pl11x,tft-r0g0b0-pads",
