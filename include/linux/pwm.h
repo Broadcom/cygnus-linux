@@ -3,6 +3,7 @@
 
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/mutex.h>
 
 struct pwm_device;
 struct seq_file;
@@ -98,6 +99,7 @@ struct pwm_device {
 	unsigned int pwm;
 	struct pwm_chip *chip;
 	void *chip_data;
+	struct mutex lock;
 
 	unsigned int period;
 	unsigned int duty_cycle;
