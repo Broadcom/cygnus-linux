@@ -102,4 +102,13 @@ config PCI_LAYERSCAPE
 	help
 	  Say Y here if you want PCIe controller support on Layerscape SoCs.
 
+config PCIE_IPROC
+	bool "Broadcom iProc PCIe controller"
+	depends on ARCH_BCM_IPROC
+	help
+	  Say Y here if you want to enable the PCIe controller driver support
+	  on Broadcom's iProc family of SoCs.
+
+	  MSI is also supported in the driver.
+
 endmenu
