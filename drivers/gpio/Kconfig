@@ -126,6 +126,18 @@ config GPIO_74XX_MMIO
 	    8 bits:	74244 (Input), 74273 (Output)
 	    16 bits:	741624 (Input), 7416374 (Output)
 
+config GPIO_BCM_CYGNUS
+	bool "Broadcom Cygnus GPIO support"
+	depends on ARCH_BCM_CYGNUS && OF_GPIO
+	default y
+	help
+	  Say yes here to turn on GPIO support for Broadcom Cygnus SoC
+
+	  The Broadcom Cygnus SoC has 3 GPIO controllers including the ASIU
+	  GPIO controller (ASIU), the chipCommonG GPIO controller (CCM), and
+	  the always-ON GPIO controller (CRMU). All 3 GPIO controllers are
+	  supported by this driver
+
 config GPIO_CLPS711X
 	tristate "CLPS711X GPIO support"
 	depends on ARCH_CLPS711X || COMPILE_TEST
