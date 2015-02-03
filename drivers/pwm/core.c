@@ -222,14 +222,8 @@ void *pwm_get_chip_data(struct pwm_device *pwm)
 }
 EXPORT_SYMBOL_GPL(pwm_get_chip_data);
 
-/**
- * pwmchip_add() - register a new PWM chip
- * @chip: the PWM chip to add
- *
- * Register a new PWM chip. If chip->base < 0 then a dynamically assigned base
- * will be used.
- */
-int pwmchip_add(struct pwm_chip *chip)
+static int pwmchip_add_with_polarity(struct pwm_chip *chip,
+				     enum pwm_polarity polarity)
 {
 	struct pwm_device *pwm;
 	unsigned int i;
@@ -259,6 +253,7 @@ int pwmchip_add(struct pwm_chip *chip)
 		pwm->chip = chip;
 		pwm->pwm = chip->base + i;
 		pwm->hwpwm = i;
+		pwm->polarity = polarity;
 
 		radix_tree_insert(&pwm_tree, pwm->pwm, pwm);
 	}
@@ -279,7 +274,32 @@ out:
 	mutex_unlock(&pwm_lock);
 	return ret;
 }
+
+/**
+ * pwmchip_add() - register a new PWM chip
+ * @chip: the PWM chip to add
+ *
+ * Register a new PWM chip. If chip->base < 0 then a dynamically assigned base
+ * will be used.  The initial polarity for all channels is normal.
+ */
+int pwmchip_add(struct pwm_chip *chip)
+{
+	return pwmchip_add_with_polarity(chip, PWM_POLARITY_NORMAL);
+}
 EXPORT_SYMBOL_GPL(pwmchip_add);
+
+/**
+ * pwmchip_add_inversed() - register a new PWM chip
+ * @chip: the PWM chip to add
+ *
+ * Register a new PWM chip. If chip->base < 0 then a dynamically assigned base
+ * will be used.  The initial polarity for all channels is inversed.
+ */
+int pwmchip_add_inversed(struct pwm_chip *chip)
+{
+	return pwmchip_add_with_polarity(chip, PWM_POLARITY_INVERSED);
+}
+EXPORT_SYMBOL_GPL(pwmchip_add_inversed);
 
 /**
  * pwmchip_remove() - remove a PWM chip
@@ -457,8 +477,14 @@ EXPORT_SYMBOL_GPL(pwm_set_polarity);
  */
 int pwm_enable(struct pwm_device *pwm)
 {
-	if (pwm && !test_and_set_bit(PWMF_ENABLED, &pwm->flags))
-		return pwm->chip->ops->enable(pwm->chip, pwm);
+	int err;
+
+	if (pwm && !test_and_set_bit(PWMF_ENABLED, &pwm->flags)) {
+		err = pwm->chip->ops->enable(pwm->chip, pwm);
+		if (err)
+			clear_bit(PWMF_ENABLED, &pwm->flags);
+		return err;
+	}
 
 	return pwm ? 0 : -EINVAL;
 }

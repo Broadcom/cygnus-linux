@@ -80,15 +80,19 @@ static void kona_pwmc_apply_settings(struct kona_pwmc *kp, unsigned int chan)
 {
 	unsigned int value = readl(kp->base + PWM_CONTROL_OFFSET);
 
-	/* Clear trigger bit but set smooth bit to maintain old output */
-	value |= 1 << PWM_CONTROL_SMOOTH_SHIFT(chan);
-	value &= ~(1 << PWM_CONTROL_TRIGGER_SHIFT(chan));
-	writel(value, kp->base + PWM_CONTROL_OFFSET);
+	/*
+	 * There must be a min 400ns delay between clearing enable and setting
+	 * it. Failing to do this may result in no PWM signal.
+	 */
+	ndelay(400);
 
 	/* Set trigger bit and clear smooth bit to apply new settings */
 	value &= ~(1 << PWM_CONTROL_SMOOTH_SHIFT(chan));
 	value |= 1 << PWM_CONTROL_TRIGGER_SHIFT(chan);
 	writel(value, kp->base + PWM_CONTROL_OFFSET);
+
+	/* PWMOUT_ENABLE must be held high for at least 400 ns. */
+	ndelay(400);
 }
 
 static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
@@ -121,20 +125,56 @@ static int kona_pwmc_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		dc = div64_u64(val, div);
 
 		/* If duty_ns or period_ns are not achievable then return */
-		if (pc < PERIOD_COUNT_MIN || dc < DUTY_CYCLE_HIGH_MIN)
+		if (pc < PERIOD_COUNT_MIN) {
+			dev_warn(chip->dev,
+				"%s: pwm[%d]: period=%d is not achievable, pc=%lu, prescale=%lu\n",
+				__func__, chan, period_ns, pc, prescale);
 			return -EINVAL;
+		}
+
+		/* If duty_ns is not achievable then return */
+		if (dc < DUTY_CYCLE_HIGH_MIN) {
+			if (0 != duty_ns) {
+				dev_warn(chip->dev,
+					"%s: pwm[%d]: duty cycle=%d is not achievable, dc=%lu, prescale=%lu\n",
+					__func__, chan, duty_ns, dc, prescale);
+			}
+			return -EINVAL;
+		}
 
 		/* If pc and dc are in bounds, the calculation is done */
 		if (pc <= PERIOD_COUNT_MAX && dc <= DUTY_CYCLE_HIGH_MAX)
 			break;
 
 		/* Otherwise, increase prescale and recalculate pc and dc */
-		if (++prescale > PRESCALE_MAX)
+		if (++prescale > PRESCALE_MAX) {
+			dev_warn(chip->dev,
+				"%s: pwm[%d]: Prescale (=%lu) within max (=%d) for period=%d and duty cycle=%d is not achievable\n",
+				__func__, chan, prescale, PRESCALE_MAX,
+				period_ns, duty_ns);
 			return -EINVAL;
+		}
 	}
 
-	/* If the PWM channel is enabled, write the settings to the HW */
+	dev_dbg(chip->dev, "pwm[%d]: period=%lu, duty_high=%lu, prescale=%lu\n",
+		chan, pc, dc, prescale);
+
+	/*
+	 * Don't apply settings if disabled. The period and duty cycle are
+	 * always calculated above to ensure the new values are
+	 * validated immediately instead of on enable.
+	 */
 	if (test_bit(PWMF_ENABLED, &pwm->flags)) {
+		value = readl(kp->base + PWM_CONTROL_OFFSET);
+
+		/*
+		 * Clear trigger bit but set smooth bit to maintain old
+		 * output.
+		 */
+		value |= 1 << PWM_CONTROL_SMOOTH_SHIFT(chan);
+		value &= ~(1 << PWM_CONTROL_TRIGGER_SHIFT(chan));
+		writel(value, kp->base + PWM_CONTROL_OFFSET);
+
 		value = readl(kp->base + PRESCALE_OFFSET);
 		value &= ~PRESCALE_MASK(chan);
 		value |= prescale << PRESCALE_SHIFT(chan);
@@ -173,11 +213,6 @@ static int kona_pwmc_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	writel(value, kp->base + PWM_CONTROL_OFFSET);
 
-	kona_pwmc_apply_settings(kp, chan);
-
-	/* Wait for waveform to settle before gating off the clock */
-	ndelay(400);
-
 	clk_disable_unprepare(kp->clk);
 
 	return 0;
@@ -207,13 +242,23 @@ static void kona_pwmc_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct kona_pwmc *kp = to_kona_pwmc(chip);
 	unsigned int chan = pwm->hwpwm;
+	unsigned int value = readl(kp->base + PWM_CONTROL_OFFSET);
+
+	/* Set smooth type to 1 and disable */
+	value |= 1 << PWM_CONTROL_SMOOTH_SHIFT(chan);
+	value &= ~(1 << PWM_CONTROL_TRIGGER_SHIFT(chan));
+	writel(value, kp->base + PWM_CONTROL_OFFSET);
 
 	/* Simulate a disable by configuring for zero duty */
 	writel(0, kp->base + DUTY_CYCLE_HIGH_OFFSET(chan));
-	kona_pwmc_apply_settings(kp, chan);
+	writel(0, kp->base + PERIOD_COUNT_OFFSET(chan));
 
-	/* Wait for waveform to settle before gating off the clock */
-	ndelay(400);
+	/* Set prescale to 0 for this channel */
+	value = readl(kp->base + PRESCALE_OFFSET);
+	value &= ~PRESCALE_MASK(chan);
+	writel(value, kp->base + PRESCALE_OFFSET);
+
+	kona_pwmc_apply_settings(kp, chan);
 
 	clk_disable_unprepare(kp->clk);
 }
@@ -266,18 +311,15 @@ static int kona_pwmc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* Set smooth mode, push/pull, and normal polarity for all channels */
-	for (chan = 0; chan < kp->chip.npwm; chan++) {
-		value |= (1 << PWM_CONTROL_SMOOTH_SHIFT(chan));
+	/* Set push/pull for all channels */
+	for (chan = 0; chan < kp->chip.npwm; chan++)
 		value |= (1 << PWM_CONTROL_TYPE_SHIFT(chan));
-		value |= (1 << PWM_CONTROL_POLARITY_SHIFT(chan));
-	}
 
 	writel(value, kp->base + PWM_CONTROL_OFFSET);
 
 	clk_disable_unprepare(kp->clk);
 
-	ret = pwmchip_add(&kp->chip);
+	ret = pwmchip_add_inversed(&kp->chip);
 	if (ret < 0)
 		dev_err(&pdev->dev, "failed to add PWM chip: %d\n", ret);
 
