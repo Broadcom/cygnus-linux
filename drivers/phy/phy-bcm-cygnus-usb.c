@@ -419,7 +419,7 @@ static int bcm_phy_probe(struct platform_device *pdev)
 		struct bcm_phy_instance *instance_ptr =
 					&phy_driver->instances[i];
 		instance_ptr->generic_phy =
-				devm_phy_create(dev, NULL, &ops, NULL);
+				devm_phy_create(dev, NULL, &ops);
 
 		if (IS_ERR(instance_ptr->generic_phy)) {
 			dev_err(dev, "Failed to create usb phy %d", i);
