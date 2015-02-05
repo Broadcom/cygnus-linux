@@ -2581,6 +2581,23 @@ const char *of_clk_get_parent_name(struct device_node *np, int index)
 }
 EXPORT_SYMBOL_GPL(of_clk_get_parent_name);
 
+unsigned long of_clk_get_parent_rate(struct device_node *np, int index)
+{
+	const char *parent_name;
+	struct clk *parent_clk;
+
+	parent_name = of_clk_get_parent_name(np, index);
+	if (!parent_name)
+		return 0;
+
+	parent_clk = __clk_lookup(parent_name);
+	if (!parent_clk)
+		return 0;
+
+	return clk_get_rate(parent_clk);
+}
+EXPORT_SYMBOL_GPL(of_clk_get_parent_rate);
+
 struct clock_provider {
 	of_clk_init_cb_t clk_init_cb;
 	struct device_node *np;
