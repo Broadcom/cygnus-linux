@@ -1,0 +1,32 @@
+IPROC NAND controller
+
+Required properties:
+  - compatible : Should be "brcm,iproc-nand-nsp" or "brcm,iproc-nand-cygnus".
+  - reg : The registers location and length for nand_regs, nand_idm_regs and
+	  optionally nand_strap_regs.
+  - interrupts : The interrupt number.
+
+Optional properties:
+- #chip-selects : Number of chip selects. If not present, it defaults to 1.
+- wp-mode : Write protect mode. If not present, it defaults to 1.
+		0 - WP is not used or not available
+		1 - WP is set by default, cleared for erase/write operations
+		2 - WP is always cleared
+- timing-mode : Maximum ONFI timing mode allowed (0-5).
+		If not present, it defaults to power-on timing configuration
+- hw-auto-init : Perform controller auto configuration
+- corr-threshold-percent : The percentage of the BCH ECC correction capability
+			   from which correctable errors will be reported.
+			   If not present, it defaults to 60%.
+
+Examples:
+
+	nand: nand@0x18046000 {
+		compatible = "brcm,iproc-nand-cygnus";
+		reg = nand_regs: <0x18046000 0x1000>,
+		      nand_idm_regs: <0xf8105000 0x1000>;
+		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+		#chip-selects = <1>;
+		wp-mode = <1>;
+		timing-mode = <5>;
+	};
