@@ -126,6 +126,8 @@
 		#size-cells = <0>;
 		interrupts = <GIC_SPI 86 IRQ_TYPE_NONE>;
 		clock-frequency = <100000>;
+		status = "disabled";
+	};
 
 	pcie0: pcie@18012000 {
 		compatible = "brcm,iproc-pcie";
@@ -165,8 +167,6 @@
 		device_type = "pci";
 		ranges = <0x81000000 0 0	  0x48000000 0 0x00010000
 			  0x82000000 0 0x40000000 0x40000000 0 0x04000000>;
-
->>>>>>> remotes/origin/iproc-pcie-v3
 		status = "disabled";
 	};
 
