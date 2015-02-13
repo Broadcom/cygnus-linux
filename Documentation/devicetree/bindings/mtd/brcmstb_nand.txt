@@ -19,6 +19,12 @@ Required properties:
 - #address-cells   : <1> - subnodes give the chip-select number
 - #size-cells      : <0>
 
+Optional properties:
+- brcm,nand-has-wp          : Some versions of this IP include a write-protect
+			      (WP) control bit. It is always available on >=
+			      v7.0. Use this property to describe the rare
+                              earlier versions of this core that include WP
+
 Each controller (compatible: "brcm,brcmnand") may contain one or more subnodes
 to represent enabled chip-selects which (may) contain NAND flash chips. Their
 properties are as follows.
@@ -36,10 +42,6 @@ Optional properties:
 - nand-on-flash-bbt         : boolean, to enable the on-flash BBT for this
                               chip-select. See nand.txt
 - brcm,nand-oob-sector-size : integer, TBD
-- brcm,nand-has-wp          : Some versions of this IP include a write-protect
-			      (WP) control bit. It is always available on >=
-			      v7.0. Use this property to describe the rare
-                              earlier versions of this core that include WP
 
 Each nandcs device node may optionally contain sub-nodes describing the flash
 partition mapping. See partition.txt for more detail.
