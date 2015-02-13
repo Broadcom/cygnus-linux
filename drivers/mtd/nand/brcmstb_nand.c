@@ -108,6 +108,7 @@ enum {
 };
 
 struct brcmnand_controller {
+	struct device		*dev;
 	struct nand_hw_control	controller;
 	void __iomem		*nand_base;
 	void __iomem		*nand_fc; /* flash cache */
@@ -409,6 +410,8 @@ static int brcmnand_revision_init(struct brcmnand_controller *ctrl)
 		ctrl->features |= BRCMNAND_HAS_1K_SECTORS;
 
 	if (ctrl->nand_version >= 0x0700)
+		ctrl->features |= BRCMNAND_HAS_WP;
+	else if (of_property_read_bool(ctrl->dev->of_node, "brcm,nand-has-wp"))
 		ctrl->features |= BRCMNAND_HAS_WP;
 
 	return 0;
@@ -2050,6 +2053,7 @@ static int brcmnand_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	dev_set_drvdata(dev, ctrl);
+	ctrl->dev = dev;
 
 	init_completion(&ctrl->done);
 	init_completion(&ctrl->dma_done);
