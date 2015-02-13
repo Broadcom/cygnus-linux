@@ -28,6 +28,8 @@
 #define CLCD_PL110_UCUR		0x00000028
 #define CLCD_PL110_LCUR		0x0000002C
 
+#define CLCD_PL111_IENB_VCOMP	(1 << 3)
+
 #define CLCD_PL111_CNTL		0x00000018
 #define CLCD_PL111_IENB		0x0000001c
 #define CLCD_PL111_RIS		0x00000020
@@ -184,6 +186,8 @@ struct clcd_fb {
 	u32			clcd_cntl;
 	u32			cmap[16];
 	bool			clk_enabled;
+	struct completion	wait;
+	int			lcd_irq;
 };
 
 static inline void clcdfb_decode(struct clcd_fb *fb, struct clcd_regs *regs)
