@@ -585,7 +585,7 @@ struct clk *of_clk_src_simple_get(struct of_phandle_args *clkspec,
 struct clk *of_clk_src_onecell_get(struct of_phandle_args *clkspec, void *data);
 int of_clk_get_parent_count(struct device_node *np);
 const char *of_clk_get_parent_name(struct device_node *np, int index);
-
+unsigned long of_clk_get_parent_rate(struct device_node *np, int index);
 void of_clk_init(const struct of_device_id *matches);
 
 #else /* !CONFIG_OF */
@@ -613,6 +613,10 @@ static inline const char *of_clk_get_parent_name(struct device_node *np,
 						 int index)
 {
 	return NULL;
+}
+static unsigned long of_clk_get_parent_rate(struct device_node *np, int index)
+{
+	return 0;
 }
 #define of_clk_init(matches) \
 	{ while (0); }
