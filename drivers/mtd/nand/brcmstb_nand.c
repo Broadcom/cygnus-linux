@@ -815,7 +815,7 @@ static void brcmnand_wp(struct mtd_info *mtd, int wp)
 		static int old_wp = -1;
 
 		if (old_wp != wp) {
-			dev_dbg(&host->pdev->dev, "WP %s\n", wp ? "on" : "off");
+			dev_dbg(ctrl->dev, "WP %s\n", wp ? "on" : "off");
 			old_wp = wp;
 		}
 		brcmnand_set_wp(ctrl, wp);
@@ -936,7 +936,7 @@ static void brcmnand_send_cmd(struct brcmnand_host *host, int cmd)
 {
 	struct brcmnand_controller *ctrl = host->ctrl;
 
-	dev_dbg(&host->pdev->dev, "send native cmd %d addr_lo 0x%x\n", cmd,
+	dev_dbg(ctrl->dev, "send native cmd %d addr_lo 0x%x\n", cmd,
 		brcmnand_read_reg(ctrl, BRCMNAND_CMD_ADDRESS));
 	BUG_ON(ctrl->cmd_pending != 0);
 	ctrl->cmd_pending = cmd;
@@ -962,16 +962,16 @@ static int brcmnand_waitfunc(struct mtd_info *mtd, struct nand_chip *this)
 	struct brcmnand_controller *ctrl = host->ctrl;
 	unsigned long timeo = msecs_to_jiffies(100);
 
-	dev_dbg(&host->pdev->dev, "wait on native cmd %d\n", ctrl->cmd_pending);
+	dev_dbg(ctrl->dev, "wait on native cmd %d\n", ctrl->cmd_pending);
 	if (ctrl->cmd_pending &&
 			wait_for_completion_timeout(&ctrl->done, timeo) <= 0) {
 		unsigned long cmd = brcmnand_read_reg(ctrl, BRCMNAND_CMD_START)
 					>> brcmnand_cmd_shift(ctrl);
 
-		dev_err_ratelimited(&host->pdev->dev,
+		dev_err_ratelimited(ctrl->dev,
 			"timeout waiting for command %u (%ld)\n",
 			host->last_cmd, cmd);
-		dev_err_ratelimited(&host->pdev->dev, "intfc status %08x\n",
+		dev_err_ratelimited(ctrl->dev, "intfc status %08x\n",
 			brcmnand_read_reg(ctrl, BRCMNAND_INTFC_STATUS));
 	}
 	ctrl->cmd_pending = 0;
@@ -1019,7 +1019,7 @@ static int brcmnand_low_level_op(struct brcmnand_host *host,
 		/* RETURN_IDLE */
 		tmp |= LLOP_RETURN_IDLE;
 
-	dev_dbg(&host->pdev->dev, "ll_op cmd %#x\n", tmp);
+	dev_dbg(ctrl->dev, "ll_op cmd %#x\n", tmp);
 
 	brcmnand_write_reg(ctrl, BRCMNAND_LL_OP, tmp);
 	(void)brcmnand_read_reg(ctrl, BRCMNAND_LL_OP);
@@ -1044,7 +1044,7 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 	else if (page_addr < 0)
 		addr = 0;
 
-	dev_dbg(&host->pdev->dev, "cmd 0x%x addr 0x%llx\n", command,
+	dev_dbg(ctrl->dev, "cmd 0x%x addr 0x%llx\n", command,
 		(unsigned long long)addr);
 
 	host->last_cmd = command;
@@ -1174,7 +1174,7 @@ static uint8_t brcmnand_read_byte(struct mtd_info *mtd)
 		}
 	}
 
-	dev_dbg(&host->pdev->dev, "read byte = 0x%02x\n", ret);
+	dev_dbg(ctrl->dev, "read byte = 0x%02x\n", ret);
 	host->last_byte++;
 
 	return ret;
@@ -1259,7 +1259,7 @@ static void brcmnand_dma_run(struct brcmnand_host *host, dma_addr_t desc)
 	flash_dma_writel(ctrl, FLASH_DMA_CTRL, 0x03); /* wake | run */
 
 	if (wait_for_completion_timeout(&ctrl->dma_done, timeo) <= 0) {
-		dev_err(&host->pdev->dev,
+		dev_err(ctrl->dev,
 				"timeout waiting for DMA; status %#x, error status %#x\n",
 				flash_dma_readl(ctrl, FLASH_DMA_STATUS),
 				flash_dma_readl(ctrl, FLASH_DMA_ERROR_STATUS));
@@ -1275,14 +1275,14 @@ static int brcmnand_dma_trans(struct brcmnand_host *host, u64 addr, u32 *buf,
 	dma_addr_t buf_pa;
 	int dir = dma_cmd == CMD_PAGE_READ ? DMA_FROM_DEVICE : DMA_TO_DEVICE;
 
-	buf_pa = dma_map_single(&host->pdev->dev, buf, len, dir);
+	buf_pa = dma_map_single(ctrl->dev, buf, len, dir);
 
 	brcmnand_fill_dma_desc(host, ctrl->dma_desc, addr, buf_pa, len,
 				   dma_cmd, true, true, 0);
 
 	brcmnand_dma_run(host, ctrl->dma_pa);
 
-	dma_unmap_single(&host->pdev->dev, buf_pa, len, dir);
+	dma_unmap_single(ctrl->dev, buf_pa, len, dir);
 
 	if (ctrl->dma_desc->status_valid & FLASH_DMA_ECC_ERROR)
 		return -EBADMSG;
@@ -1419,8 +1419,7 @@ static int brcmnand_read(struct mtd_info *mtd, struct nand_chip *chip,
 	u64 err_addr = 0;
 	int err;
 
-	dev_dbg(&host->pdev->dev, "read %llx -> %p\n",
-		(unsigned long long)addr, buf);
+	dev_dbg(ctrl->dev, "read %llx -> %p\n", (unsigned long long)addr, buf);
 
 	brcmnand_write_reg(ctrl, BRCMNAND_UNCORR_COUNT, 0);
 
@@ -1445,8 +1444,7 @@ static int brcmnand_read(struct mtd_info *mtd, struct nand_chip *chip,
 		int ret = brcmnand_verify_erased_page(mtd, chip, buf, addr);
 
 		if (ret < 0) {
-			dev_dbg(&host->pdev->dev,
-					"uncorrectable error at 0x%llx\n",
+			dev_dbg(ctrl->dev, "uncorrectable error at 0x%llx\n",
 					(unsigned long long)err_addr);
 			mtd->ecc_stats.failed++;
 			/* NAND layer expects zero on ECC errors */
@@ -1457,7 +1455,7 @@ static int brcmnand_read(struct mtd_info *mtd, struct nand_chip *chip,
 			if (oob)
 				memset(oob, 0xff, mtd->oobsize);
 
-			dev_info(&host->pdev->dev,
+			dev_info(ctrl->dev,
 					"corrected %d bitflips in blank page at 0x%llx\n",
 					ret, (unsigned long long)addr);
 			return ret;
@@ -1467,7 +1465,7 @@ static int brcmnand_read(struct mtd_info *mtd, struct nand_chip *chip,
 	if (mtd_is_bitflip(err)) {
 		unsigned int corrected = brcmnand_count_corrected(ctrl);
 
-		dev_dbg(&host->pdev->dev, "corrected error at 0x%llx\n",
+		dev_dbg(ctrl->dev, "corrected error at 0x%llx\n",
 			(unsigned long long)err_addr);
 		mtd->ecc_stats.corrected += corrected;
 		/* Always exceed the software-imposed threshold */
@@ -1540,11 +1538,10 @@ static int brcmnand_write(struct mtd_info *mtd, struct nand_chip *chip,
 	unsigned int i, j, trans = mtd->writesize >> FC_SHIFT;
 	int status, ret = 0;
 
-	dev_dbg(&host->pdev->dev, "write %llx <- %p\n",
-		(unsigned long long)addr, buf);
+	dev_dbg(ctrl->dev, "write %llx <- %p\n", (unsigned long long)addr, buf);
 
 	if (unlikely((u32)buf & 0x03)) {
-		dev_warn(&host->pdev->dev, "unaligned buffer: %p\n", buf);
+		dev_warn(ctrl->dev, "unaligned buffer: %p\n", buf);
 		buf = (u32 *)((u32)buf & ~0x03);
 	}
 
@@ -1588,7 +1585,7 @@ static int brcmnand_write(struct mtd_info *mtd, struct nand_chip *chip,
 		status = brcmnand_waitfunc(mtd, chip);
 
 		if (status & NAND_STATUS_FAIL) {
-			dev_info(&host->pdev->dev, "program failed at %llx\n",
+			dev_info(ctrl->dev, "program failed at %llx\n",
 				(unsigned long long)addr);
 			ret = -EIO;
 			goto out;
@@ -1669,7 +1666,7 @@ static int brcmnand_set_cfg(struct brcmnand_host *host,
 				found = 1;
 			}
 		if (!found) {
-			dev_warn(&host->pdev->dev, "invalid block size %u\n",
+			dev_warn(ctrl->dev, "invalid block size %u\n",
 					cfg->block_size);
 			return -EINVAL;
 		}
@@ -1679,7 +1676,7 @@ static int brcmnand_set_cfg(struct brcmnand_host *host,
 
 	if (cfg->block_size < BRCMNAND_MIN_BLOCKSIZE || (ctrl->max_block_size &&
 				cfg->block_size > ctrl->max_block_size)) {
-		dev_warn(&host->pdev->dev, "invalid block size %u\n",
+		dev_warn(ctrl->dev, "invalid block size %u\n",
 				cfg->block_size);
 		block_size = 0;
 	}
@@ -1693,7 +1690,7 @@ static int brcmnand_set_cfg(struct brcmnand_host *host,
 				found = 1;
 			}
 		if (!found) {
-			dev_warn(&host->pdev->dev, "invalid page size %u\n",
+			dev_warn(ctrl->dev, "invalid page size %u\n",
 					cfg->page_size);
 			return -EINVAL;
 		}
@@ -1703,13 +1700,12 @@ static int brcmnand_set_cfg(struct brcmnand_host *host,
 
 	if (cfg->page_size < BRCMNAND_MIN_PAGESIZE || (ctrl->max_page_size &&
 				cfg->page_size > ctrl->max_page_size)) {
-		dev_warn(&host->pdev->dev, "invalid page size %u\n",
-				cfg->page_size);
+		dev_warn(ctrl->dev, "invalid page size %u\n", cfg->page_size);
 		return -EINVAL;
 	}
 
 	if (fls64(cfg->device_size) < fls64(BRCMNAND_MIN_DEVSIZE)) {
-		dev_warn(&host->pdev->dev, "invalid device size 0x%llx\n",
+		dev_warn(ctrl->dev, "invalid device size 0x%llx\n",
 			(unsigned long long)cfg->device_size);
 		return -EINVAL;
 	}
@@ -1821,12 +1817,11 @@ static int brcmnand_setup_dev(struct brcmnand_host *host)
 		break;
 	case 1024:
 		if (!(ctrl->features & BRCMNAND_HAS_1K_SECTORS)) {
-			dev_err(&host->pdev->dev,
-				"1KB sectors not supported\n");
+			dev_err(ctrl->dev, "1KB sectors not supported\n");
 			return -EINVAL;
 		}
 		if (chip->ecc.strength & 0x1) {
-			dev_err(&host->pdev->dev,
+			dev_err(ctrl->dev,
 				"odd ECC not supported with 1KB sectors\n");
 			return -EINVAL;
 		}
@@ -1835,7 +1830,7 @@ static int brcmnand_setup_dev(struct brcmnand_host *host)
 		cfg->sector_size_1k = 1;
 		break;
 	default:
-		dev_err(&host->pdev->dev, "unsupported ECC size: %d\n",
+		dev_err(ctrl->dev, "unsupported ECC size: %d\n",
 			chip->ecc.size);
 		return -EINVAL;
 	}
@@ -1853,7 +1848,7 @@ static int brcmnand_setup_dev(struct brcmnand_host *host)
 	brcmnand_set_ecc_enabled(host, 1);
 
 	brcmnand_print_cfg(msg, cfg);
-	dev_info(&host->pdev->dev, "detected %s\n", msg);
+	dev_info(ctrl->dev, "detected %s\n", msg);
 
 	/* Configure ACC_CONTROL */
 	offs = brcmnand_cs_offset(ctrl, host->cs, BRCMNAND_CS_ACC_CONTROL);
