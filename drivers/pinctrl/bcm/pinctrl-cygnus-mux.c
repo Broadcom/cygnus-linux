@@ -954,7 +954,7 @@ static void cygnus_gpio_disable_free(struct pinctrl_dev *pctrl_dev,
 
 	spin_unlock_irqrestore(&pinctrl->lock, flags);
 
-	dev_err(pctrl_dev->dev,
+	dev_dbg(pctrl_dev->dev,
 		"gpio disable free pin=%u offset=0x%x shift=%u\n",
 		pin, mux->offset, mux->shift);
 }
