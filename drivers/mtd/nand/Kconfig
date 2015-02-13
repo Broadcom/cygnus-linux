@@ -524,4 +524,11 @@ config MTD_NAND_SUNXI
 	help
 	  Enables support for NAND Flash chips on Allwinner SoCs.
 
+config MTD_NAND_IPROC
+	tristate "Support iProc NAND"
+	depends on ARCH_BCM_IPROC
+	default ARCH_BCM_IPROC
+	help
+	  This selects the driver for the iProc NAND Controller.
+
 endif # MTD_NAND
