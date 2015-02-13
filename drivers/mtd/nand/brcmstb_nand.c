@@ -2067,8 +2067,19 @@ static int brcmnand_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/* Locate NAND flash cache */
-	ctrl->nand_fc = ctrl->nand_base + ctrl->reg_offsets[BRCMNAND_FC_BASE];
+	/*
+	 * Most chips have this cache at a fixed offset within 'nand' block.
+	 * Some must specify this region separately.
+	 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nand-cache");
+	if (res) {
+		ctrl->nand_fc = devm_ioremap_resource(dev, res);
+		if (!ctrl->nand_fc)
+			return -ENODEV;
+	} else {
+		ctrl->nand_fc = ctrl->nand_base +
+				ctrl->reg_offsets[BRCMNAND_FC_BASE];
+	}
 
 	/* FLASH_DMA */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "flash-dma");

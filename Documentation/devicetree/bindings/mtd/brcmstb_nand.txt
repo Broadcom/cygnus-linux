@@ -7,11 +7,12 @@ and exists in several similar (but not fully register compatible) versions.
 Required properties:
 - compatible       : should contain "brcm,brcmnand" and an appropriate version
                       compatibility string, like "brcm,brcmnand-v7.0"
-- reg              : the register start and length for NAND and (if present)
-                      FLASH_DMA blocks
+- reg              : the register start and length for NAND register region.
+                     (optional) Flash DMA register range (if present)
+                     (optional) NAND flash cache range (if at non-standard offset)
 - reg-names        : a list of the names corresponding to the previous register
-		     ranges. Should contain "nand" and (if FLASH_DMA is
-                     available) "flash-dma".
+		     ranges. Should contain "nand" and (optionally)
+                     "flash-dma" and/or "nand-cache".
 - interrupts       : The NAND CTLRDY interrupt and (if Flash DMA is available)
                      FLASH_DMA_DONE
 - interrupt-names  : May be "nand_ctlrdy" or "flash_dma"done"
