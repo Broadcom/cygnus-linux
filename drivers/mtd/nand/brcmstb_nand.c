@@ -105,6 +105,7 @@ enum {
 	BRCMNAND_HAS_PREFETCH			= BIT(1),
 	BRCMNAND_HAS_CACHE_MODE			= BIT(2),
 	BRCMNAND_HAS_WP				= BIT(3),
+	BRCMNAND_FC_BE				= BIT(4),
 };
 
 struct brcmnand_controller {
@@ -415,6 +416,9 @@ static int brcmnand_revision_init(struct brcmnand_controller *ctrl)
 	else if (of_property_read_bool(ctrl->dev->of_node, "brcm,nand-has-wp"))
 		ctrl->features |= BRCMNAND_HAS_WP;
 
+	if (of_property_read_bool(ctrl->dev->of_node, "brcm,nand-cache-be"))
+		ctrl->features |= BRCMNAND_FC_BE;
+
 	return 0;
 }
 
@@ -451,12 +455,22 @@ static inline void brcmnand_rmw_reg(struct brcmnand_controller *ctrl,
 
 static inline u32 brcmnand_read_fc(struct brcmnand_controller *ctrl, int word)
 {
-	return le32_to_cpu(__raw_readl(ctrl->nand_fc + word * 4));
+	u32 tmp = __raw_readl(ctrl->nand_fc + word * 4);
+
+	if (unlikely(ctrl->features & BRCMNAND_FC_BE))
+		return be32_to_cpu(tmp);
+	else
+		return le32_to_cpu(tmp);
 }
 
 static inline void brcmnand_write_fc(struct brcmnand_controller *ctrl,
 				     int word, u32 val)
 {
+	if (unlikely(ctrl->features & BRCMNAND_FC_BE))
+		val = cpu_to_be32(val);
+	else
+		val = cpu_to_le32(val);
+
 	__raw_writel(val, ctrl->nand_fc + word * 4);
 }
 
