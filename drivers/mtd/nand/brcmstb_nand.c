@@ -1929,7 +1929,7 @@ static int brcmnand_init_cs(struct brcmnand_host *host)
 	chip->dn = dn;
 	chip->priv = host;
 	mtd->priv = chip;
-	mtd->name = dev_name(&pdev->dev);
+	mtd->name = "iproc_nand"; //dev_name(&pdev->dev);
 	mtd->owner = THIS_MODULE;
 	mtd->dev.parent = &pdev->dev;
 
