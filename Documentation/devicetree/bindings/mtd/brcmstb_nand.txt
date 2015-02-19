@@ -10,9 +10,10 @@ Required properties:
 - reg              : the register start and length for NAND register region.
                      (optional) Flash DMA register range (if present)
                      (optional) NAND flash cache range (if at non-standard offset)
+                     (optional) NAND interrupt ack register range (if present)
 - reg-names        : a list of the names corresponding to the previous register
 		     ranges. Should contain "nand" and (optionally)
-                     "flash-dma" and/or "nand-cache".
+                     "flash-dma", "nand-cache", and/or "nand-irqack"
 - interrupts       : The NAND CTLRDY interrupt and (if Flash DMA is available)
                      FLASH_DMA_DONE
 - interrupt-names  : May be "nand_ctlrdy" or "flash_dma"done"
