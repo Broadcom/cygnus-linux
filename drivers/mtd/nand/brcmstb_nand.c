@@ -113,6 +113,7 @@ struct brcmnand_controller {
 	void __iomem		*nand_base;
 	void __iomem		*nand_fc; /* flash cache */
 	void __iomem		*flash_dma_base;
+	void __iomem		*nand_irqack;
 	unsigned int		irq;
 	unsigned int		dma_irq;
 	int			nand_version;
@@ -665,6 +666,32 @@ enum brcmnand_llop_type {
 };
 
 /***********************************************************************
+ * NAND IRQ ACK
+ ***********************************************************************/
+
+enum nand_irqack_reg {
+	NAND_IRQACK_DIR_READ_MISS	= 0x00,
+	NAND_IRQACK_BLK_ERASE_COMPLETE	= 0x04,
+	NAND_IRQACK_CP_BACK_COMPLETE	= 0x08,
+	NAND_IRQACK_PROG_PAGE_COMPLETE	= 0x0c,
+	NAND_IRQACK_CTLR_READY		= 0x10,
+	NAND_IRQACK_READY_BUSY		= 0x14,
+	NAND_IRQACK_ECC_UNCORR		= 0x18,
+	NAND_IRQACK_ECC_CORR		= 0x1c,
+};
+
+static inline bool irqack_is_required(struct brcmnand_controller *ctrl)
+{
+	return (ctrl->nand_irqack ? true : false);
+}
+
+static inline void nand_irqack_writel(struct brcmnand_controller *ctrl,
+				      u8 offs, u32 val)
+{
+	__raw_writel(val, ctrl->nand_irqack + offs);
+}
+
+/***********************************************************************
  * Internal support functions
  ***********************************************************************/
 
@@ -918,6 +945,9 @@ static irqreturn_t brcmnand_ctlrdy_irq(int irq, void *data)
 	/* Discard all NAND_CTLRDY interrupts during DMA */
 	if (ctrl->dma_pending)
 		return IRQ_HANDLED;
+
+	if (irqack_is_required(ctrl))
+		nand_irqack_writel(ctrl, NAND_IRQACK_CTLR_READY, 0x1);
 
 	complete(&ctrl->done);
 	return IRQ_HANDLED;
@@ -2030,7 +2060,6 @@ static const struct dev_pm_ops brcmnand_pm_ops = {
 /***********************************************************************
  * Platform driver setup (per controller)
  ***********************************************************************/
-
 static int brcmnand_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2116,6 +2145,13 @@ static int brcmnand_probe(struct platform_device *pdev)
 		dev_info(dev, "enabling FLASH_DMA\n");
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nand-irqack");
+	if (res) {
+		ctrl->nand_irqack = devm_ioremap_resource(dev, res);
+		if (!ctrl->nand_irqack)
+			return -ENODEV;
+	}
+
 	/* Disable automatic device ID config, direct addressing, and XOR */
 	brcmnand_rmw_reg(ctrl, BRCMNAND_CS_SELECT, (1 << 30) | 0xff, 0, 0);
 	brcmnand_rmw_reg(ctrl, BRCMNAND_CS_XOR, 0xff, 0, 0);
@@ -2134,6 +2170,9 @@ static int brcmnand_probe(struct platform_device *pdev)
 		dev_err(dev, "no IRQ defined\n");
 		return -ENODEV;
 	}
+
+	if (irqack_is_required(ctrl))
+		nand_irqack_writel(ctrl, NAND_IRQACK_CTLR_READY, 0x1);
 
 	ret = devm_request_irq(dev, ctrl->irq, brcmnand_ctlrdy_irq, 0,
 			DRV_NAME, ctrl);
