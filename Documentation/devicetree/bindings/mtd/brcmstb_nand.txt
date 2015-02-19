@@ -39,6 +39,7 @@ Optional properties:
                               (WP) control bit. It is always available on >=
                               v7.0. Use this property to describe the rare
                               earlier versions of this core that include WP
+- brcm,nand-int             : TBD; phandle to interrupt controller node
 
 * NAND chip-select
 

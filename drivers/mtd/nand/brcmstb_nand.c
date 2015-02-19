@@ -37,6 +37,8 @@
 #include <linux/list.h>
 #include <linux/log2.h>
 
+#include "brcmnand.h"
+
 /*
  * This flag controls if WP stays on between erase/write commands to mitigate
  * flash corruption due to power glitches. Values:
@@ -116,6 +118,9 @@ struct brcmnand_controller {
 	unsigned int		irq;
 	unsigned int		dma_irq;
 	int			nand_version;
+
+	/* Some SoCs provide custom interrupt status register(s) */
+	struct brcmnand_intc	*intc;
 
 	int			cmd_pending;
 	bool			dma_pending;
@@ -957,6 +962,17 @@ static irqreturn_t brcmnand_ctlrdy_irq(int irq, void *data)
 
 	complete(&ctrl->done);
 	return IRQ_HANDLED;
+}
+
+/* Handle SoC-specific interrupt hardware */
+static irqreturn_t brcmnand_irq(int irq, void *data)
+{
+	struct brcmnand_controller *ctrl = data;
+
+	if (ctrl->intc->ctlrdy_ack(ctrl->intc))
+		return brcmnand_ctlrdy_irq(irq, data);
+
+	return IRQ_NONE;
 }
 
 static irqreturn_t brcmnand_dma_irq(int irq, void *data)
@@ -1978,6 +1994,11 @@ static int brcmnand_resume(struct device *dev)
 	brcmnand_write_reg(ctrl, BRCMNAND_CS_XOR, ctrl->nand_cs_nand_xor);
 	brcmnand_write_reg(ctrl, BRCMNAND_CORR_THRESHOLD,
 			ctrl->corr_stat_threshold);
+	if (ctrl->intc) {
+		/* Clear/re-enable interrupt */
+		ctrl->intc->ctlrdy_ack(ctrl->intc);
+		ctrl->intc->ctlrdy_set_enabled(ctrl->intc, true);
+	}
 
 	list_for_each_entry(host, &ctrl->host_list, node) {
 		struct mtd_info *mtd = &host->mtd;
@@ -2107,8 +2128,33 @@ static int brcmnand_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(dev, ctrl->irq, brcmnand_ctlrdy_irq, 0,
-			DRV_NAME, ctrl);
+	/* Some SoCs integrate NAND interrupt bits in interesting ways */
+	if (of_property_read_bool(dn, "brcm,nand-intc")) {
+		struct device_node *intc_dn;
+
+		intc_dn = of_parse_phandle(dn, "brcm,nand-intc", 0);
+		if (!intc_dn)
+			return -ENODEV;
+
+		ctrl->intc = devm_brcmnand_probe_intc(dev, intc_dn);
+		if (!ctrl->intc) {
+			dev_err(dev, "could not probe interrupt controller\n");
+			of_node_put(intc_dn);
+			return -ENODEV;
+		}
+
+		ret = devm_request_irq(dev, ctrl->irq, brcmnand_irq, 0,
+				       DRV_NAME, ctrl);
+
+		/* Enable interrupt */
+		ctrl->intc->ctlrdy_set_enabled(ctrl->intc, true);
+
+		of_node_put(intc_dn);
+	} else {
+		/* Use standard interrupt infrastructure */
+		ret = devm_request_irq(dev, ctrl->irq, brcmnand_ctlrdy_irq, 0,
+				       DRV_NAME, ctrl);
+	}
 	if (ret < 0) {
 		dev_err(dev, "can't allocate IRQ %d: error %d\n",
 			ctrl->irq, ret);
