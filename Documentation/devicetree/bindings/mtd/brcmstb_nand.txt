@@ -26,6 +26,10 @@ Optional properties:
 			      (WP) control bit. It is always available on >=
 			      v7.0. Use this property to describe the rare
                               earlier versions of this core that include WP
+- brcm,nand-cache-be        : In certain SoCs, the flash cache registers
+                              contain data stored in Big Endian format. Use
+                              this property to indicate that. If unspecified,
+                              the driver assumes Little Endian format
 
 Each controller (compatible: "brcm,brcmnand") may contain one or more subnodes
 to represent enabled chip-selects which (may) contain NAND flash chips. Their
