@@ -29,7 +29,10 @@ Required properties:
                      "flash-dma" and/or "nand-cache".
 - interrupts       : The NAND CTLRDY interrupt and (if Flash DMA is available)
                      FLASH_DMA_DONE
-- interrupt-names  : May be "nand_ctlrdy" or "flash_dma_done"
+- interrupt-names  : For hardware without a dedicated 'brcm,nand-int' node, may
+                     be "nand_ctlrdy" or "flash_dma_done"
+                     For hardware with a dedicated 'brcm,nand-int' node for
+                     breaking out individual interrupt types, may be "nand"
 - interrupt-parent : See standard interrupt bindings
 - #address-cells   : <1> - subnodes give the chip-select number
 - #size-cells      : <0>
@@ -39,7 +42,9 @@ Optional properties:
                               (WP) control bit. It is always available on >=
                               v7.0. Use this property to describe the rare
                               earlier versions of this core that include WP
-- brcm,nand-int             : TBD; phandle to interrupt controller node
+- brcm,nand-int             : Phandle to interrupt control node. This is
+                              necessary for SoCs where NAND interrupts are
+                              integrated in non-standard ways.
 
 * NAND chip-select
 
@@ -73,6 +78,32 @@ Optional properties:
 
 Each nandcs device node may optionally contain sub-nodes describing the flash
 partition mapping. See partition.txt for more detail.
+
+
+* NAND interrupt control node:
+
+The NAND controller is integrated differently on the variety of SoCs on which it
+is found. Part of this integration involves providing status and enable bits
+with which to control the 8 exposed NAND interrupts. On some SoCs, these are
+integrated via their standard L2 interrupt controllers, but on others, they are
+controlled in unique and interesting ways. The former case can be described
+simply by the standard interrupts properties in the main controller node. But
+for the latter exceptional cases, we can describe these extra interrupt
+"controllers" via the following node, referenced from the brcm,brcmnand node
+above.
+
+ - compatible: Can be one of several SoC-specifi strings. Each SoC may have
+   different requirements for its additional properties, as described below each
+   bullet point below.
+
+   * "brcm,nand-intc-bcm63138"
+     - reg: (required) the 'NAND_INT_BASE' register range, with separate status
+       and enable registers
+
+   * "brcm,nand-intc-bcm3384"
+     - reg: (required) the 'NAND_INT_BASE' register range, with a combined
+       status/enable register, split between the upper and lower 16 bits
+
 
 Example:
 
