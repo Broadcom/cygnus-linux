@@ -131,5 +131,22 @@
 			clock-names = "periph";
 			status = "disabled";
 		};
+
+		nand: nand@2000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "brcm,brcmnand-v7.0", "brcm,brcmnand";
+			reg = <0x2000 0x600>;
+			reg-names = "nand";
+			status = "disabled";
+			interrupts = <GIC_SPI 38 0>;
+			interrupt-names = "nand";
+			brcm,nand-intc = <&nand_int_base>;
+		};
+
+		nand_int_base: nand-intc@f0 {
+			compatible = "brcm,nand-intc-bcm63138";
+			reg = <0xf0 0x10>;
+		};
 	};
 };
