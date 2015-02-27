@@ -344,35 +344,28 @@ static int dw8250_probe_of(struct uart_port *p,
 	if (id >= 0)
 		p->line = id;
 
-	msr_cnt = of_property_count_strings(np, "msr-override");
+	if (of_property_read_bool(np, "dcd-override")) {
+		/* Always report DCD as active */
+		data->msr_mask_on |= UART_MSR_DCD;
+		data->msr_mask_off |= UART_MSR_DDCD;
+	}
 
-	if (msr_cnt > 0) {
-		for (i = 0; i < msr_cnt; i++) {
-			of_property_read_string_index(np, "msr-override", i,
-				&inp_name);
+	if (of_property_read_bool(np, "dsr-override")) {
+		/* Always report DSR as active */
+		data->msr_mask_on |= UART_MSR_DSR;
+		data->msr_mask_off |= UART_MSR_DDSR;
+	}
 
-			if (!strcmp("dcd", inp_name)) {
-				/* Always report DCD as active */
-				data->msr_mask_on |= UART_MSR_DCD;
-				data->msr_mask_off |= UART_MSR_DDCD;
-			} else if (!strcmp("dsr", inp_name)) {
-				/* Always report DSR as active */
-				data->msr_mask_on |= UART_MSR_DSR;
-				data->msr_mask_off |= UART_MSR_DDSR;
-			} else if (!strcmp("cts", inp_name)) {
-				/* Always report CTS as active */
-				data->msr_mask_on |= UART_MSR_CTS;
-				data->msr_mask_off |= UART_MSR_DCTS;
-			} else if (!strcmp("ri", inp_name)) {
-				/* Always report Ring indicator as inactive */
-				data->msr_mask_off |= UART_MSR_RI;
-				data->msr_mask_off |= UART_MSR_TERI;
-			} else {
-				dev_err(p->dev,
-					"Ignore unknown msr-override %s\n",
-					inp_name);
-			}
-		}
+	if (of_property_read_bool(np, "cts-override")) {
+		/* Always report DSR as active */
+		data->msr_mask_on |= UART_MSR_DSR;
+		data->msr_mask_off |= UART_MSR_DDSR;
+	}
+
+	if (of_property_read_bool(np, "ri-override")) {
+		/* Always report Ring indicator as inactive */
+		data->msr_mask_off |= UART_MSR_RI;
+		data->msr_mask_off |= UART_MSR_TERI;
 	}
 
 	/* clock got configured through clk api, all done */
