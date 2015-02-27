@@ -394,6 +394,13 @@ config MTD_NAND_GPMI_NAND
 	 block, such as SD card. So pay attention to it when you enable
 	 the GPMI.
 
+config MTD_NAND_BRCMSTB
+	tristate "Broadcom NAND controller for BCM7xxx SoCs"
+	depends on ARM || MIPS
+	help
+	  Enables the Broadcom NAND controller driver. Used on various BCM7xxx,
+	  BCM3384, BCM63xxx, and more.
+
 config MTD_NAND_BCM47XXNFLASH
 	tristate "Support for NAND flash on BCM4706 BCMA bus"
 	depends on BCMA_NFLASH

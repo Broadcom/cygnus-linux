@@ -215,13 +215,17 @@
 	};
 
 	nand: nand@0x18046000 {
-		compatible = "brcm,iproc-nand-cygnus";
-		reg = <0x18046000 0x1000>,
-		      <0xf8105000 0x1000>;
+		compatible = "brcm,brcmnand-v6.0", "brcm,brcmnand";
+		reg = <0x18046000 0x600>,
+		      <0x18046f00 0x20>;
+		reg-names = "nand", "nand-irqack";
 		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
-		#chip-selects = <1>;
-		wp-mode = <1>;
-		timing-mode = <5>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		brcm,nand-has-wp;
+		brcm,nand-cache-be;
 	};
 
 	gic: interrupt-controller@19021000 {
