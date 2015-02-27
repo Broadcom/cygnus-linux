@@ -172,13 +172,13 @@ static int iproc_rng200_probe(struct platform_device *pdev)
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	if (!res) {
-		dev_err(dev, "failed to get rng resources");
+		dev_err(dev, "failed to get rng resources\n");
 		return -ENODEV;
 	}
 
 	rng_base = devm_ioremap_resource(dev, res);
 	if (!rng_base) {
-		dev_err(dev, "failed to remap rng regs");
+		dev_err(dev, "failed to remap rng regs\n");
 		return -ENODEV;
 	}
 
