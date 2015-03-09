@@ -2029,8 +2029,8 @@ static int brcmnand_probe(struct platform_device *pdev)
 	/* NAND register range */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ctrl->nand_base = devm_ioremap_resource(dev, res);
-	if (!ctrl->nand_base)
-		return -ENODEV;
+	if (IS_ERR(ctrl->nand_base))
+		return PTR_ERR(ctrl->nand_base);
 
 	/* Initialize NAND revision */
 	ret = brcmnand_revision_init(ctrl);
@@ -2044,8 +2044,8 @@ static int brcmnand_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nand-cache");
 	if (res) {
 		ctrl->nand_fc = devm_ioremap_resource(dev, res);
-		if (!ctrl->nand_fc)
-			return -ENODEV;
+		if (IS_ERR(ctrl->nand_fc))
+			return PTR_ERR(ctrl->nand_fc);
 	} else {
 		ctrl->nand_fc = ctrl->nand_base +
 				ctrl->reg_offsets[BRCMNAND_FC_BASE];
@@ -2055,8 +2055,8 @@ static int brcmnand_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "flash-dma");
 	if (res) {
 		ctrl->flash_dma_base = devm_ioremap_resource(dev, res);
-		if (!ctrl->flash_dma_base)
-			return -ENODEV;
+		if (IS_ERR(ctrl->flash_dma_base))
+			return PTR_ERR(ctrl->flash_dma_base);
 
 		flash_dma_writel(ctrl, FLASH_DMA_MODE, 1); /* linked-list */
 		flash_dma_writel(ctrl, FLASH_DMA_ERROR_STATUS, 0);
