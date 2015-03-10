@@ -1,0 +1,24 @@
+Broadcom Cygnus DTE Digital Timing Engine device tree bindings
+
+The DTE block allows for hardware timestamping of network packets,
+audio/video samples and/or GPIO inputs in a common adjustable time base.
+
+Required SoC Specific Properties:
+- compatible: should be "brcm,cygnus-dte"
+
+- reg: Requires two separate register sets
+	Base address of the Audio EAV Regsiters for DTE block and length of memory
+	mapped region.
+
+- interrupts: The DTE interrupt number to the cpu.
+
+Example:
+
+/ {
+	dte: dte@0x180af000 {
+		compatible = "brcm,cygnus-dte";
+		reg = <0x180af000 0x1000>;
+		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+
+	};
+};
