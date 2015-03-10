@@ -515,6 +515,17 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+config BCM_CYGNUS_DTE
+	tristate "Cygnus DTE support"
+	depends on ARCH_BCM_CYGNUS
+	default ARCH_BCM_CYGNUS
+	help
+	  Enable support for a Digital Timing Engine (DTE) that allows for hardware
+	  time stamping of network packets, audio/video samples and/or GPIO inputs
+	  in a common adjustable time base.
+
+	  If unsure, say N.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
