@@ -1,11 +1,10 @@
-#define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
-
 #include <linux/kernel.h>
+#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <linux/bcma/bcma.h>
 #include <linux/spi/spi.h>
+#include <linux/of.h>
 
 #include "spi-bcm53xx.h"
 
@@ -15,7 +14,7 @@
 #define BCM53XXSPI_SPE_TIMEOUT_MS	80
 
 struct bcm53xxspi {
-	struct bcma_device *core;
+	void __iomem *base;
 	struct spi_master *master;
 
 	size_t read_offset;
@@ -23,13 +22,13 @@ struct bcm53xxspi {
 
 static inline u32 bcm53xxspi_read(struct bcm53xxspi *b53spi, u16 offset)
 {
-	return bcma_read32(b53spi->core, offset);
+	return readl(b53spi->base + offset);
 }
 
 static inline void bcm53xxspi_write(struct bcm53xxspi *b53spi, u16 offset,
 				    u32 value)
 {
-	bcma_write32(b53spi->core, offset, value);
+	writel(value, b53spi->base + offset);
 }
 
 static inline unsigned int bcm53xxspi_calc_timeout(size_t len)
@@ -206,89 +205,86 @@ static int bcm53xxspi_transfer_one(struct spi_master *master,
 	return 0;
 }
 
-/**************************************************
- * BCMA
- **************************************************/
-
-static struct spi_board_info bcm53xx_info = {
-	.modalias	= "bcm53xxspiflash",
-};
-
-static const struct bcma_device_id bcm53xxspi_bcma_tbl[] = {
-	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_NS_QSPI, BCMA_ANY_REV, BCMA_ANY_CLASS),
-	{},
-};
-MODULE_DEVICE_TABLE(bcma, bcm53xxspi_bcma_tbl);
-
-static int bcm53xxspi_bcma_probe(struct bcma_device *core)
+static int bcm53xxspi_bcma_probe(struct platform_device *pdev)
 {
+	struct bcm53xxspi *priv;
+	struct device *dev = &pdev->dev;
 	struct bcm53xxspi *b53spi;
 	struct spi_master *master;
 	int err;
+	struct resource *res;
 
-	if (core->bus->drv_cc.core->id.rev != 42) {
-		pr_err("SPI on SoC with unsupported ChipCommon rev\n");
-		return -ENOTSUPP;
-	}
+	dev_info(dev, "Entering BCM MSPI probe\n");
 
-	master = spi_alloc_master(&core->dev, sizeof(*b53spi));
+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	master = spi_alloc_master(dev, sizeof(*b53spi));
 	if (!master)
 		return -ENOMEM;
 
 	b53spi = spi_master_get_devdata(master);
 	b53spi->master = master;
-	b53spi->core = core;
+	b53spi->master->dev.of_node = dev->of_node;
 
 	master->transfer_one = bcm53xxspi_transfer_one;
 
-	bcma_set_drvdata(core, b53spi);
-
-	err = devm_spi_register_master(&core->dev, master);
-	if (err) {
-		spi_master_put(master);
-		bcma_set_drvdata(core, NULL);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	b53spi->base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(priv->base)) {
+		dev_err(&pdev->dev, "unable to map I/O memory\n");
+		err = PTR_ERR(priv->base);
 		goto out;
 	}
 
-	/* Broadcom SoCs (at least with the CC rev 42) use SPI for flash only */
-	spi_new_device(master, &bcm53xx_info);
+	platform_set_drvdata(pdev, priv);
+
+	err = devm_spi_register_master(dev, master);
+	if (err)
+		goto out;
+
+	return 0;
 
 out:
+	spi_master_put(master);
 	return err;
 }
 
-static void bcm53xxspi_bcma_remove(struct bcma_device *core)
+static int bcm53xxspi_bcma_remove(struct platform_device *pdev)
 {
-	struct bcm53xxspi *b53spi = bcma_get_drvdata(core);
+	struct bcm53xxspi *priv = platform_get_drvdata(pdev);
 
-	spi_unregister_master(b53spi->master);
+	spi_unregister_master(priv->master);
+
+	return 0;
 }
 
-static struct bcma_driver bcm53xxspi_bcma_driver = {
-	.name		= KBUILD_MODNAME,
-	.id_table	= bcm53xxspi_bcma_tbl,
-	.probe		= bcm53xxspi_bcma_probe,
-	.remove		= bcm53xxspi_bcma_remove,
+static const struct of_device_id bcm_mspi_dt[] = {
+	{ .compatible = "brcm,mspi" },
+	{ },
 };
+MODULE_DEVICE_TABLE(of, bcm_mspi_dt);
 
-/**************************************************
- * Init & exit
- **************************************************/
+static struct platform_driver driver = {
+    .driver = {
+        .name = "bcm-mspi",
+		.of_match_table = bcm_mspi_dt,
+    },
+    .probe = bcm53xxspi_bcma_probe,
+    .remove = bcm53xxspi_bcma_remove,
+};
 
 static int __init bcm53xxspi_module_init(void)
 {
-	int err = 0;
+	platform_driver_register(&driver);
 
-	err = bcma_driver_register(&bcm53xxspi_bcma_driver);
-	if (err)
-		pr_err("Failed to register bcma driver: %d\n", err);
-
-	return err;
+	return 0;
 }
 
 static void __exit bcm53xxspi_module_exit(void)
 {
-	bcma_driver_unregister(&bcm53xxspi_bcma_driver);
+	platform_driver_unregister(&driver);
 }
 
 module_init(bcm53xxspi_module_init);
