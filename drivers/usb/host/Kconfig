@@ -558,6 +558,7 @@ config USB_CNS3XXX_OHCI
 
 config USB_OHCI_HCD_PLATFORM
 	tristate "Generic OHCI driver for a platform device"
+	select GENERIC_PHY
 	default n
 	---help---
 	  Adds an OHCI host driver for a generic platform device, which
