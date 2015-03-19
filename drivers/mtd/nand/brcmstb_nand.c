@@ -1025,12 +1025,11 @@ static int brcmnand_waitfunc(struct mtd_info *mtd, struct nand_chip *this)
 	dev_dbg(ctrl->dev, "wait on native cmd %d\n", ctrl->cmd_pending);
 	if (ctrl->cmd_pending &&
 			wait_for_completion_timeout(&ctrl->done, timeo) <= 0) {
-		unsigned long cmd = brcmnand_read_reg(ctrl, BRCMNAND_CMD_START)
+		u32 cmd = brcmnand_read_reg(ctrl, BRCMNAND_CMD_START)
 					>> brcmnand_cmd_shift(ctrl);
 
 		dev_err_ratelimited(ctrl->dev,
-			"timeout waiting for command %u (%ld)\n",
-			host->last_cmd, cmd);
+			"timeout waiting for command %#02x\n", cmd);
 		dev_err_ratelimited(ctrl->dev, "intfc status %08x\n",
 			brcmnand_read_reg(ctrl, BRCMNAND_INTFC_STATUS));
 	}
