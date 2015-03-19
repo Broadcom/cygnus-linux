@@ -375,8 +375,11 @@ static int brcmnand_revision_init(struct brcmnand_controller *ctrl)
 	ctrl->nand_version = nand_readreg(ctrl, 0) & 0xffff;
 
 	/* Only support v4.0+? */
-	if (ctrl->nand_version < 0x0400)
+	if (ctrl->nand_version < 0x0400) {
+		dev_err(ctrl->dev, "version %#x not supported\n",
+			ctrl->nand_version);
 		return -ENODEV;
+	}
 
 	/* Register offsets */
 	if (ctrl->nand_version >= 0x0600)
@@ -398,7 +401,7 @@ static int brcmnand_revision_init(struct brcmnand_controller *ctrl)
 	} else {
 		ctrl->cs_offsets = brcmnand_cs_offsets;
 
-		/* pre-v5.0 has a different CS0 offset layout */
+		/* v5.0 and earlier has a different CS0 offset layout */
 		if (ctrl->nand_version <= 0x0500)
 			ctrl->cs0_offsets = brcmnand_cs_offsets_cs0;
 	}
