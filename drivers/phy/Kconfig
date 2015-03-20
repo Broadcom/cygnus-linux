@@ -309,4 +309,16 @@ config PHY_QCOM_UFS
 	help
 	  Support for UFS PHY on QCOM chipsets.
 
+config PHY_BCM_CYGNUS_USB
+	tristate "Broadcom Cygnus USB PHY support"
+	depends on OF
+	depends on ARCH_BCM_CYGNUS || COMPILE_TEST
+	select GENERIC_PHY
+	default ARCH_BCM_CYGNUS
+	help
+	  Enable this to support the USB PHY in Broadcom's Cygnus chip.
+	  The phys are capable of supporting host mode for all ports
+	  and device mode for port 2. The host or device configuration is
+	  read from the device tree.
+
 endmenu
