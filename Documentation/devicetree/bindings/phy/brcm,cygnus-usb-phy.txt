@@ -1,0 +1,69 @@
+BROADCOM CYGNUS USB PHY
+
+Required Properties:
+	- compatible:  brcm,cygnus-usb-phy
+	- reg : usbphy_regs - Base address of phy registers
+			usb2h_idm_regs - Base address of host idm registers
+			usb2d_idm_regs - Base address of device idm registers
+	- phy-cells - must be 1 for each port declared. The node
+		      that uses the phy must provide either PHY_CONFIG_DEVICE for device
+		      or PHY_CONFIG_HOST for host
+
+NOTE: port 0 and port 1 are host only and port 2 can be configured for host or
+device.
+
+Example of phy :
+	usbphy0: usbphy@0x0301c000 {
+		compatible = "brcm,cygnus-usb-phy";
+		reg = <0x0301c000 0x2000>,
+		      <0x18115000 0x1000>,
+		      <0x18111000 0x1000>;
+		status = "okay";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		usbphy0_0: usbphy0@0 {
+			#phy-cells = <1>;
+			reg = <0>;
+			status = "okay";
+			phy-supply = <&vbus_p0>;
+		};
+
+		usbphy0_1: usbphy0@1 {
+			#phy-cells = <1>;
+			reg = <1>;
+			status = "okay";
+		};
+
+		usbphy0_2: usbphy0@2 {
+			#phy-cells = <1>;
+			reg = <2>;
+			status = "okay";
+			phy-supply = <&vbus_p2>;
+		};
+	};
+
+Example of node using the phy:
+
+	/* This nodes declares all three ports as host */
+
+	ehci0: usb@0x18048000 {
+		compatible = "generic-ehci";
+		reg = <0x18048000 0x100>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+		phys = <&usbphy0_0 PHY_CONFIG_HOST &usbphy0_1 PHY_CONFIG_HOST &usbphy0_2 PHY_CONFIG_HOST>;
+		status = "okay";
+	};
+
+	/*
+	 * This node declares port 2 phy
+	 * and configures it for device
+	 */
+
+	usbd_udc_dwc1: usbd_udc_dwc@0x1804c000 {
+		compatible = "iproc-udc";
+		reg = <0x1804c000 0x2000>;
+		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
+		phys = <&usbphy0_2 PHY_CONFIG_DEVICE>;
+		phy-names = "usb";
+	};

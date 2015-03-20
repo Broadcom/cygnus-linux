@@ -15,5 +15,7 @@
 #define PHY_TYPE_PCIE		2
 #define PHY_TYPE_USB2		3
 #define PHY_TYPE_USB3		4
+#define PHY_USB2_CONFIG_HOST	0
+#define PHY_USB2_CONFIG_DEVICE	1
 
 #endif /* _DT_BINDINGS_PHY */
