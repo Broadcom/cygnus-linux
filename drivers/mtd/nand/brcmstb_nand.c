@@ -1905,8 +1905,8 @@ static int brcmnand_init_cs(struct brcmnand_host *host)
 	chip->dn = dn;
 	chip->priv = host;
 	mtd->priv = chip;
-	mtd->name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "brcmnand.%d",
-				   host->cs);
+	mtd->name = "iproc_nand";//devm_kasprintf(&pdev->dev, GFP_KERNEL, "brcmnand.%d",
+				   //host->cs);
 	mtd->owner = THIS_MODULE;
 	mtd->dev.parent = &pdev->dev;
 
