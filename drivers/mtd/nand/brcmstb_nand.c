@@ -120,7 +120,7 @@ struct brcmnand_controller {
 	int			nand_version;
 
 	/* Some SoCs provide custom interrupt status register(s) */
-	struct brcmnand_intc	*intc;
+	struct brcmnand_soc	*soc;
 
 	int			cmd_pending;
 	bool			dma_pending;
@@ -972,7 +972,7 @@ static irqreturn_t brcmnand_irq(int irq, void *data)
 {
 	struct brcmnand_controller *ctrl = data;
 
-	if (ctrl->intc->ctlrdy_ack(ctrl->intc))
+	if (ctrl->soc->ctlrdy_ack(ctrl->soc))
 		return brcmnand_ctlrdy_irq(irq, data);
 
 	return IRQ_NONE;
@@ -1166,12 +1166,14 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 	if (native_cmd == CMD_PARAMETER_READ ||
 			native_cmd == CMD_PARAMETER_CHANGE_COL) {
 		int i;
+
 		/*
 		 * Must cache the FLASH_CACHE now, since changes in
 		 * SECTOR_SIZE_1K may invalidate it
 		 */
 		for (i = 0; i < FC_WORDS; i++)
 			ctrl->flash_cache[i] = brcmnand_read_fc(ctrl, i);
+
 		/* Cleanup from HW quirk: restore SECTOR_SIZE_1K */
 		if (host->hwcfg.sector_size_1k)
 			brcmnand_set_sector_size_1k(host,
@@ -2008,10 +2010,10 @@ static int brcmnand_resume(struct device *dev)
 	brcmnand_write_reg(ctrl, BRCMNAND_CS_XOR, ctrl->nand_cs_nand_xor);
 	brcmnand_write_reg(ctrl, BRCMNAND_CORR_THRESHOLD,
 			ctrl->corr_stat_threshold);
-	if (ctrl->intc) {
+	if (ctrl->soc) {
 		/* Clear/re-enable interrupt */
-		ctrl->intc->ctlrdy_ack(ctrl->intc);
-		ctrl->intc->ctlrdy_set_enabled(ctrl->intc, true);
+		ctrl->soc->ctlrdy_ack(ctrl->soc);
+		ctrl->soc->ctlrdy_set_enabled(ctrl->soc, true);
 	}
 
 	list_for_each_entry(host, &ctrl->host_list, node) {
@@ -2143,17 +2145,17 @@ static int brcmnand_probe(struct platform_device *pdev)
 	}
 
 	/* Some SoCs integrate NAND interrupt bits in interesting ways */
-	if (of_property_read_bool(dn, "brcm,nand-intc")) {
-		struct device_node *intc_dn;
+	if (of_property_read_bool(dn, "brcm,nand-soc")) {
+		struct device_node *soc_dn;
 
-		intc_dn = of_parse_phandle(dn, "brcm,nand-intc", 0);
-		if (!intc_dn)
+		soc_dn = of_parse_phandle(dn, "brcm,nand-soc", 0);
+		if (!soc_dn)
 			return -ENODEV;
 
-		ctrl->intc = devm_brcmnand_probe_intc(dev, intc_dn);
-		if (!ctrl->intc) {
-			dev_err(dev, "could not probe interrupt controller\n");
-			of_node_put(intc_dn);
+		ctrl->soc = devm_brcmnand_probe_soc(dev, soc_dn);
+		if (!ctrl->soc) {
+			dev_err(dev, "devm_brcmnand_probe_soc failed\n");
+			of_node_put(soc_dn);
 			return -ENODEV;
 		}
 
@@ -2161,9 +2163,9 @@ static int brcmnand_probe(struct platform_device *pdev)
 				       DRV_NAME, ctrl);
 
 		/* Enable interrupt */
-		ctrl->intc->ctlrdy_set_enabled(ctrl->intc, true);
+		ctrl->soc->ctlrdy_set_enabled(ctrl->soc, true);
 
-		of_node_put(intc_dn);
+		of_node_put(soc_dn);
 	} else {
 		/* Use standard interrupt infrastructure */
 		ret = devm_request_irq(dev, ctrl->irq, brcmnand_ctlrdy_irq, 0,

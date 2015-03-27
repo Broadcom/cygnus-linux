@@ -19,25 +19,25 @@
 struct device;
 struct device_node;
 
-struct brcmnand_intc {
+struct brcmnand_soc {
 	struct device *dev; /* parent device */
 	struct device_node *dn;
-	bool (*ctlrdy_ack)(struct brcmnand_intc *intc);
-	void (*ctlrdy_set_enabled)(struct brcmnand_intc *intc, bool en);
+	bool (*ctlrdy_ack)(struct brcmnand_soc *soc);
+	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
 	void *priv;
 };
 
 /**
- * Probe for a custom Broadcom NAND interrupt controller
+ * Probe for a custom Broadcom SoC
  *
  * @dev: device to bind devres objects to
- * @dn: DT node for the interrupt controller
+ * @dn: DT node for the custom SoC
  *
- * Return a new intc struct if successful. Should be freed with
- * brcmnand_remove_intc().
+ * Return a new soc struct if successful. Should be freed with
+ * brcmnand_remove_soc().
  * Return NULL for all other errors
  */
-struct brcmnand_intc *devm_brcmnand_probe_intc(struct device *dev,
-					       struct device_node *dn);
+struct brcmnand_soc *devm_brcmnand_probe_soc(struct device *dev,
+					     struct device_node *dn);
 
 #endif /* __BRCMNAND_H__ */
