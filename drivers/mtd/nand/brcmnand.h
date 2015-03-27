@@ -24,6 +24,7 @@ struct brcmnand_soc {
 	struct device_node *dn;
 	bool (*ctlrdy_ack)(struct brcmnand_soc *soc);
 	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
+	void (*apb_access_mode)(struct brcmnand_soc *soc, bool cfg_le);
 	void *priv;
 };
 

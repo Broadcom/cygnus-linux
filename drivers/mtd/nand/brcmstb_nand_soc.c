@@ -25,6 +25,7 @@ struct brcmnand_soc_ofdata {
 	int (*init)(struct brcmnand_soc *soc);
 	bool (*ctlrdy_ack)(struct brcmnand_soc *soc);
 	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
+	void (*apb_access_mode)(struct brcmnand_soc *soc, bool cfg_le);
 };
 
 struct bcm63138_nand_soc_priv {
@@ -122,6 +123,7 @@ struct brcmnand_soc *devm_brcmnand_probe_soc(struct device *dev,
 	soc->dn = dn;
 	soc->ctlrdy_ack = soc_data->ctlrdy_ack;
 	soc->ctlrdy_set_enabled = soc_data->ctlrdy_set_enabled;
+	soc->apb_access_mode = soc_data->apb_access_mode;
 	if (soc_data->init) {
 		ret = soc_data->init(soc);
 		if (ret)

@@ -1167,12 +1167,17 @@ static void brcmnand_cmdfunc(struct mtd_info *mtd, unsigned command,
 			native_cmd == CMD_PARAMETER_CHANGE_COL) {
 		int i;
 
+		if (ctrl->soc->apb_access_mode)
+			ctrl->soc->apb_access_mode(ctrl->soc, true);
 		/*
 		 * Must cache the FLASH_CACHE now, since changes in
 		 * SECTOR_SIZE_1K may invalidate it
 		 */
 		for (i = 0; i < FC_WORDS; i++)
 			ctrl->flash_cache[i] = brcmnand_read_fc(ctrl, i);
+
+		if (ctrl->soc->apb_access_mode)
+			ctrl->soc->apb_access_mode(ctrl->soc, false);
 
 		/* Cleanup from HW quirk: restore SECTOR_SIZE_1K */
 		if (host->hwcfg.sector_size_1k)
@@ -1386,9 +1391,16 @@ static int brcmnand_read_by_pio(struct mtd_info *mtd, struct nand_chip *chip,
 		brcmnand_send_cmd(host, CMD_PAGE_READ);
 		brcmnand_waitfunc(mtd, chip);
 
-		if (likely(buf))
+		if (likely(buf)) {
+			if (ctrl->soc->apb_access_mode)
+				ctrl->soc->apb_access_mode(ctrl->soc, true);
+
 			for (j = 0; j < FC_WORDS; j++, buf++)
 				*buf = brcmnand_read_fc(ctrl, j);
+
+			if (ctrl->soc->apb_access_mode)
+				ctrl->soc->apb_access_mode(ctrl->soc, false);
+		}
 
 		if (oob)
 			oob += read_oob_from_regs(ctrl, i, oob,
@@ -1561,10 +1573,16 @@ static int brcmnand_write(struct mtd_info *mtd, struct nand_chip *chip,
 				   lower_32_bits(addr));
 		(void)brcmnand_read_reg(ctrl, BRCMNAND_CMD_ADDRESS);
 
-		if (buf)
+		if (buf) {
+			if (ctrl->soc->apb_access_mode)
+				ctrl->soc->apb_access_mode(ctrl->soc, true);
+
 			for (j = 0; j < FC_WORDS; j++, buf++)
 				brcmnand_write_fc(ctrl, j, *buf);
-		else if (oob)
+
+			if (ctrl->soc->apb_access_mode)
+				ctrl->soc->apb_access_mode(ctrl->soc, false);
+		} else if (oob)
 			for (j = 0; j < FC_WORDS; j++)
 				brcmnand_write_fc(ctrl, j, 0xffffffff);
 
