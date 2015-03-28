@@ -134,6 +134,25 @@
 		status = "disabled";
 	};
 
+	nand_soc: nand_soc@f8105408 {
+		compatible = "brcm,nand-soc-iproc";
+		reg = <0xf8105408 0x600>,
+		      <0x18046f00 0x20>;
+	};
+
+	nand: nand@18046000 {
+		compatible = "brcm,brcmnand-v6.0", "brcm,brcmnand";
+		reg = <0x18046000 0x600>;
+		reg-names = "nand";
+		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		brcm,nand-has-wp;
+		brcm,nand-soc = <&nand_soc>;
+	};
+
 	gic: interrupt-controller@19021000 {
 		compatible = "arm,cortex-a9-gic";
 		#interrupt-cells = <3>;
