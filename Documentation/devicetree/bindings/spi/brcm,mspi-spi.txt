@@ -1,0 +1,38 @@
+Broadcom MSPI controller
+
+Required properties:
+- compatible: Must be either "brcm,mspi" or "brcm,bcma-mspi". Use
+  "brcm,bcma-mspi" for controllers on a bcma bus and "brcm,mspi" otherwise.
+
+- reg:  Physical base address and length of the controller's registers.
+
+- interrupts: The interrupt id for the controller.
+
+- #address-cells: should be 1.
+
+- #size-cells: should be 0.
+
+Optional properties:
+- clocks: The MSPI reference clock. If not provided then it is assumed a clock
+  is enabled by default and no control of clock-frequency (see below) is
+  possible.
+
+- clock-names: The name of the reference clock.
+
+- clock-frequency: Desired frequency of the clock. This will set the serial
+  clock baud rate (SPBR) based on the reference clock frequency. The frequency
+  of the SPBR is mspi_clk / (2 * SPBR) where SPBR is a value between 1-255
+  determined by the desired 'clock-frequency'. If not provided then the default
+  baud rate of the controller is used.
+
+Example:
+
+mspi@18047000 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "brcm,mspi";
+	reg = <0x18047000 0x1000>;
+	clocks = <&axi41_clk>;
+	clock-names = "mspi_clk";
+	clock-frequency = <12500000>;
+};
