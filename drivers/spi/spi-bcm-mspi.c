@@ -18,10 +18,15 @@
 #include <linux/bcma/bcma.h>
 #include <linux/spi/spi.h>
 #include <linux/of.h>
+#include <linux/clk.h>
 
 #include "spi-bcm-mspi.h"
 
 #define BCM_MSPI_MAX_SPI_BAUD   13500000	/* 216 MHz? */
+#define SPBR_MIN                8U
+#define SPBR_MAX                255U
+#define MSPI_SPCR0_LSB_OFFSET   0x200
+#define MSPI_SPCR0_LSB_SHIFT    0
 
 /* The longest observed required wait was 19 ms */
 #define BCM_MSPI_SPE_TIMEOUT_MS 80
@@ -33,7 +38,9 @@ struct bcm_mspi {
 
 	void __iomem *base;
 	struct spi_master *master;
+	struct clk *clk;
 	size_t read_offset;
+	u32    spbr;
 
 	void (*mspi_write)(struct bcm_mspi *mspi, u16 offset, u32 value);
 	u32 (*mspi_read)(struct bcm_mspi *mspi, u16 offset);
@@ -43,6 +50,15 @@ static inline unsigned int bcm_mspi_calc_timeout(size_t len)
 {
 	/* Do some magic calculation based on length and buad. Add 10% and 1. */
 	return (len * 9000 / BCM_MSPI_MAX_SPI_BAUD * 110 / 100) + 1;
+}
+
+static void bcm_mspi_hw_init(struct bcm_mspi *mspi)
+{
+	/* Set SPBR (serial clock baud rate). */
+	if (mspi->spbr) {
+		mspi->mspi_write(mspi, MSPI_SPCR0_LSB_OFFSET,
+			mspi->spbr << MSPI_SPCR0_LSB_SHIFT);
+	}
 }
 
 static int bcm_mspi_wait(struct bcm_mspi *mspi, unsigned int timeout_ms)
@@ -222,6 +238,7 @@ static struct bcm_mspi *bcm_mspi_init(struct device *dev)
 {
 	struct bcm_mspi *data;
 	struct spi_master *master;
+	u32 desired_rate;
 
 	master = spi_alloc_master(dev, sizeof(*data));
 	if (!master) {
@@ -235,6 +252,33 @@ static struct bcm_mspi *bcm_mspi_init(struct device *dev)
 	/* SPI master will always use the SPI device(s) from DT. */
 	master->dev.of_node = dev->of_node;
 	master->transfer_one = bcm_mspi_transfer_one;
+
+	/*
+	 * Enable clock if provided. The frequency can be changed by setting
+	 * SPBR (serial clock baud rate) based on the desired 'clock-frequency'.
+	 *
+	 * Baud rate is calculated as: mspi_clk / (2 * SPBR) where SPBR is a
+	 * value between 1-255. If not set then it is left at the h/w default.
+	 */
+	data->clk = devm_clk_get(dev, "mspi_clk");
+	if (!IS_ERR(data->clk)) {
+		int ret = clk_prepare_enable(data->clk);
+
+		if (ret < 0) {
+			dev_err(dev, "failed to enable clock: %d\n", ret);
+			return 0;
+		}
+
+		/* Calculate SPBR if clock-frequency provided. */
+		if (of_property_read_u32(dev->of_node, "clock-frequency",
+			&desired_rate) >= 0) {
+			u32 spbr = clk_get_rate(data->clk) / (2 * desired_rate);
+
+			if (spbr > 0)
+				data->spbr = clamp_val(spbr, SPBR_MIN,
+					SPBR_MAX);
+		}
+	}
 
 	return data;
 }
@@ -286,6 +330,9 @@ static int bcm_mspi_probe(struct platform_device *pdev)
 	data->mspi_read = bcm_mspi_read;
 	data->mspi_write = bcm_mspi_write;
 	platform_set_drvdata(pdev, data);
+
+	/* Initialize SPI controller. */
+	bcm_mspi_hw_init(data);
 
 	err = devm_spi_register_master(dev, data->master);
 	if (err)
@@ -361,6 +408,9 @@ static int bcm_mspi_bcma_probe(struct bcma_device *core)
 	data->core = core;
 
 	bcma_set_drvdata(core, data);
+
+	/* Initialize SPI controller. */
+	bcm_mspi_hw_init(data);
 
 	err = devm_spi_register_master(&core->dev, data->master);
 	if (err) {
