@@ -11,11 +11,13 @@
  * GNU General Public License for more details.
  */
 #include <linux/kernel.h>
+#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/bcma/bcma.h>
 #include <linux/spi/spi.h>
+#include <linux/of.h>
 
 #include "spi-bcm-mspi.h"
 
@@ -25,22 +27,17 @@
 #define BCM_MSPI_SPE_TIMEOUT_MS 80
 
 struct bcm_mspi {
+	#ifdef CONFIG_SPI_BCMA_MSPI
 	struct bcma_device *core;
+	#endif
+
+	void __iomem *base;
 	struct spi_master *master;
-
 	size_t read_offset;
+
+	void (*mspi_write)(struct bcm_mspi *mspi, u16 offset, u32 value);
+	u32 (*mspi_read)(struct bcm_mspi *mspi, u16 offset);
 };
-
-static inline u32 bcm_mspi_read(struct bcm_mspi *mspi, u16 offset)
-{
-	return bcma_read32(mspi->core, offset);
-}
-
-static inline void bcm_mspi_write(struct bcm_mspi *mspi, u16 offset,
-				    u32 value)
-{
-	bcma_write32(mspi->core, offset, value);
-}
 
 static inline unsigned int bcm_mspi_calc_timeout(size_t len)
 {
@@ -56,7 +53,7 @@ static int bcm_mspi_wait(struct bcm_mspi *mspi, unsigned int timeout_ms)
 	/* SPE bit has to be 0 before we read MSPI STATUS */
 	deadline = jiffies + BCM_MSPI_SPE_TIMEOUT_MS * HZ / 1000;
 	do {
-		tmp = bcm_mspi_read(mspi, MSPI_SPCR2);
+		tmp = mspi->mspi_read(mspi, MSPI_SPCR2);
 		if (!(tmp & MSPI_SPCR2_SPE))
 			break;
 		udelay(5);
@@ -68,9 +65,9 @@ static int bcm_mspi_wait(struct bcm_mspi *mspi, unsigned int timeout_ms)
 	/* Check status */
 	deadline = jiffies + timeout_ms * HZ / 1000;
 	do {
-		tmp = bcm_mspi_read(mspi, MSPI_MSPI_STATUS);
+		tmp = mspi->mspi_read(mspi, MSPI_MSPI_STATUS);
 		if (tmp & MSPI_MSPI_STATUS_SPIF) {
-			bcm_mspi_write(mspi, MSPI_MSPI_STATUS, 0);
+			mspi->mspi_write(mspi, MSPI_MSPI_STATUS, 0);
 			return 0;
 		}
 
@@ -79,7 +76,7 @@ static int bcm_mspi_wait(struct bcm_mspi *mspi, unsigned int timeout_ms)
 	} while (!time_after_eq(jiffies, deadline));
 
 spi_timeout:
-	bcm_mspi_write(mspi, MSPI_MSPI_STATUS, 0);
+	mspi->mspi_write(mspi, MSPI_MSPI_STATUS, 0);
 
 	pr_err("Timeout waiting for SPI to be ready!\n");
 
@@ -94,7 +91,7 @@ static void bcm_mspi_buf_write(struct bcm_mspi *mspi, u8 *w_buf,
 
 	for (i = 0; i < len; i++) {
 		/* Transmit Register File MSB */
-		bcm_mspi_write(mspi, MSPI_TXRAM + 4 * (i * 2),
+		mspi->mspi_write(mspi, MSPI_TXRAM + 4 * (i * 2),
 				 (unsigned int)w_buf[i]);
 	}
 
@@ -104,28 +101,28 @@ static void bcm_mspi_buf_write(struct bcm_mspi *mspi, u8 *w_buf,
 			tmp &= ~CDRAM_CONT;
 		tmp &= ~0x1;
 		/* Command Register File */
-		bcm_mspi_write(mspi, MSPI_CDRAM + 4 * i, tmp);
+		mspi->mspi_write(mspi, MSPI_CDRAM + 4 * i, tmp);
 	}
 
 	/* Set queue pointers */
-	bcm_mspi_write(mspi, MSPI_NEWQP, 0);
-	bcm_mspi_write(mspi, MSPI_ENDQP, len - 1);
+	mspi->mspi_write(mspi, MSPI_NEWQP, 0);
+	mspi->mspi_write(mspi, MSPI_ENDQP, len - 1);
 
 	if (cont)
-		bcm_mspi_write(mspi, MSPI_WRITE_LOCK, 1);
+		mspi->mspi_write(mspi, MSPI_WRITE_LOCK, 1);
 
 	/* Start SPI transfer */
-	tmp = bcm_mspi_read(mspi, MSPI_SPCR2);
+	tmp = mspi->mspi_read(mspi, MSPI_SPCR2);
 	tmp |= MSPI_SPCR2_SPE;
 	if (cont)
 		tmp |= MSPI_SPCR2_CONT_AFTER_CMD;
-	bcm_mspi_write(mspi, MSPI_SPCR2, tmp);
+	mspi->mspi_write(mspi, MSPI_SPCR2, tmp);
 
 	/* Wait for SPI to finish */
 	bcm_mspi_wait(mspi, bcm_mspi_calc_timeout(len));
 
 	if (!cont)
-		bcm_mspi_write(mspi, MSPI_WRITE_LOCK, 0);
+		mspi->mspi_write(mspi, MSPI_WRITE_LOCK, 0);
 
 	mspi->read_offset = len;
 }
@@ -143,35 +140,35 @@ static void bcm_mspi_buf_read(struct bcm_mspi *mspi, u8 *r_buf,
 			tmp &= ~CDRAM_CONT;
 		tmp &= ~0x1;
 		/* Command Register File */
-		bcm_mspi_write(mspi, MSPI_CDRAM + 4 * i, tmp);
+		mspi->mspi_write(mspi, MSPI_CDRAM + 4 * i, tmp);
 	}
 
 	/* Set queue pointers */
-	bcm_mspi_write(mspi, MSPI_NEWQP, 0);
-	bcm_mspi_write(mspi, MSPI_ENDQP,
+	mspi->mspi_write(mspi, MSPI_NEWQP, 0);
+	mspi->mspi_write(mspi, MSPI_ENDQP,
 			 mspi->read_offset + len - 1);
 
 	if (cont)
-		bcm_mspi_write(mspi, MSPI_WRITE_LOCK, 1);
+		mspi->mspi_write(mspi, MSPI_WRITE_LOCK, 1);
 
 	/* Start SPI transfer */
-	tmp = bcm_mspi_read(mspi, MSPI_SPCR2);
+	tmp = mspi->mspi_read(mspi, MSPI_SPCR2);
 	tmp |= MSPI_SPCR2_SPE;
 	if (cont)
 		tmp |= MSPI_SPCR2_CONT_AFTER_CMD;
-	bcm_mspi_write(mspi, MSPI_SPCR2, tmp);
+	mspi->mspi_write(mspi, MSPI_SPCR2, tmp);
 
 	/* Wait for SPI to finish */
 	bcm_mspi_wait(mspi, bcm_mspi_calc_timeout(len));
 
 	if (!cont)
-		bcm_mspi_write(mspi, MSPI_WRITE_LOCK, 0);
+		mspi->mspi_write(mspi, MSPI_WRITE_LOCK, 0);
 
 	for (i = 0; i < len; ++i) {
 		int offset = mspi->read_offset + i;
 
 		/* Data stored in the transmit register file LSB */
-		r_buf[i] = (u8)bcm_mspi_read(mspi,
+		r_buf[i] = (u8)mspi->mspi_read(mspi,
 			MSPI_RXRAM + 4 * (1 + offset * 2));
 	}
 
@@ -216,9 +213,103 @@ static int bcm_mspi_transfer_one(struct spi_master *master,
 	return 0;
 }
 
-static struct spi_board_info bcm53xx_info = {
-	.modalias	= "bcm53xxspiflash",
+/*
+ * Allocate SPI master for both bcma and non bcma bus. The SPI device must be
+ * configured in DT.
+ */
+static struct bcm_mspi *bcm_mspi_init(struct device *dev)
+{
+	struct bcm_mspi *data;
+	struct spi_master *master;
+
+	master = spi_alloc_master(dev, sizeof(*data));
+	if (!master) {
+		dev_err(dev, "error allocating spi_master\n");
+		return 0;
+	}
+
+	data = spi_master_get_devdata(master);
+	data->master = master;
+
+	/* SPI master will always use the SPI device(s) from DT. */
+	master->dev.of_node = dev->of_node;
+	master->transfer_one = bcm_mspi_transfer_one;
+
+	return data;
+}
+
+#ifdef CONFIG_SPI_BCM_MSPI
+
+static const struct of_device_id bcm_mspi_dt[] = {
+	{ .compatible = "brcm,mspi" },
+	{ },
 };
+MODULE_DEVICE_TABLE(of, bcm_mspi_dt);
+
+static inline u32 bcm_mspi_read(struct bcm_mspi *mspi, u16 offset)
+{
+	return readl(mspi->base + offset);
+}
+
+static inline void bcm_mspi_write(struct bcm_mspi *mspi, u16 offset,
+	u32 value)
+{
+	writel(value, mspi->base + offset);
+}
+
+/*
+ * Probe routine for non-bcma devices.
+ */
+static int bcm_mspi_probe(struct platform_device *pdev)
+{
+	struct bcm_mspi *data;
+	struct device *dev = &pdev->dev;
+	int err;
+	struct resource *res;
+
+	dev_info(dev, "BCM MSPI probe\n");
+
+	data = bcm_mspi_init(dev);
+	if (!data)
+		return -ENOMEM;
+
+	/* Map base memory address. */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	data->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(data->base)) {
+		dev_err(&pdev->dev, "unable to map I/O memory\n");
+		err = PTR_ERR(data->base);
+		goto out;
+	}
+
+	data->mspi_read = bcm_mspi_read;
+	data->mspi_write = bcm_mspi_write;
+	platform_set_drvdata(pdev, data);
+
+	err = devm_spi_register_master(dev, data->master);
+	if (err)
+		goto out;
+
+	return 0;
+
+out:
+	spi_master_put(data->master);
+	return err;
+}
+
+static struct platform_driver bcm_mspi_driver = {
+	.driver = {
+		.name = "bcm-mspi",
+		.of_match_table = bcm_mspi_dt,
+	},
+	.probe = bcm_mspi_probe,
+};
+
+module_platform_driver(bcm_mspi_driver);
+
+#endif
+
+#ifdef CONFIG_SPI_BCMA_MSPI
 
 static const struct bcma_device_id bcm_mspi_bcma_tbl[] = {
 	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_NS_QSPI, BCMA_ANY_REV,
@@ -226,6 +317,12 @@ static const struct bcma_device_id bcm_mspi_bcma_tbl[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(bcma, bcm_mspi_bcma_tbl);
+
+static const struct of_device_id bcm_bcma_mspi_dt[] = {
+	{ .compatible = "brcm,bcma-mspi" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, bcm_mspi_dt);
 
 static inline u32 bcm_bcma_mspi_read(struct bcm_mspi *mspi, u16 offset)
 {
@@ -238,53 +335,52 @@ static inline void bcm_bcma_mspi_write(struct bcm_mspi *mspi, u16 offset,
 	bcma_write32(mspi->core, offset, value);
 }
 
+/*
+ * Probe routine for bcma devices.
+ */
 static int bcm_mspi_bcma_probe(struct bcma_device *core)
 {
 	struct bcm_mspi *data;
-	struct spi_master *master;
 	int err;
 
 	dev_info(&core->dev, "BCM MSPI BCMA probe\n");
 
 	if (core->bus->drv_cc.core->id.rev != 42) {
-		pr_err("SPI on SoC with unsupported ChipCommon rev\n");
+		dev_err(&core->dev,
+			"SPI on SoC with unsupported ChipCommon rev\n");
 		return -ENOTSUPP;
 	}
 
-	master = spi_alloc_master(&core->dev, sizeof(*data));
-	if (!master)
+	data = bcm_mspi_init(&core->dev);
+	if (!data)
 		return -ENOMEM;
 
-	data = spi_master_get_devdata(master);
-	data->master = master;
+	data->mspi_read = bcm_bcma_mspi_read;
+	data->mspi_write = bcm_bcma_mspi_write;
 	data->core = core;
-
-	master->transfer_one = bcm_mspi_transfer_one;
 	bcma_set_drvdata(core, data);
 
 	err = devm_spi_register_master(&core->dev, data->master);
 	if (err) {
-		spi_master_put(master);
-		bcma_set_drvdata(core, NULL);
-		goto out;
+		spi_master_put(data->master);
+		return err;
 	}
 
-	/* Broadcom SoCs (at least with the CC rev 42) use SPI for flash only */
-	spi_new_device(master, &bcm53xx_info);
-
-out:
-	return err;
+	return 0;
 }
 
 static struct bcma_driver bcm_mspi_bcma_driver = {
 	.name		= KBUILD_MODNAME,
+	.drv = {
+		.of_match_table = bcm_bcma_mspi_dt,
+	},
 	.id_table	= bcm_mspi_bcma_tbl,
 	.probe		= bcm_mspi_bcma_probe,
 };
 
 static int __init bcm_mspi_bcma_module_init(void)
 {
-	int err = 0;
+	int err;
 
 	err = bcma_driver_register(&bcm_mspi_bcma_driver);
 	if (err)
@@ -300,6 +396,8 @@ static void __exit bcm_mspi_bcma_module_exit(void)
 
 module_init(bcm_mspi_bcma_module_init);
 module_exit(bcm_mspi_bcma_module_exit);
+
+#endif
 
 MODULE_DESCRIPTION("Broadcom MSPI SPI Controller driver");
 MODULE_AUTHOR("Rafał Miłecki <zajec5@gmail.com>");
