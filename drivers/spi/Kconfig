@@ -120,6 +120,11 @@ config SPI_BCMA_MSPI
 	help
 	  Enable support for the Broadcom BCMA MSPI controller.
 
+config SPI_BCM_MSPI
+	tristate "Broadcom MSPI controller"
+	help
+	  Enable support for the Broadcom MSPI controller.
+
 config SPI_BCM63XX
 	tristate "Broadcom BCM63xx SPI controller"
 	depends on BCM63XX
