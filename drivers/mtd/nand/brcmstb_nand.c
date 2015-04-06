@@ -963,6 +963,7 @@ static irqreturn_t brcmnand_ctlrdy_irq(int irq, void *data)
 	if (ctrl->dma_pending)
 		return IRQ_HANDLED;
 
+	ctrl->soc->ctlrdy_ack(ctrl->soc);
 	complete(&ctrl->done);
 	return IRQ_HANDLED;
 }
