@@ -104,6 +104,14 @@ above.
      - reg: (required) the 'NAND_INT_BASE' register range, with a combined
        status/enable register, split between the upper and lower 16 bits
 
+   * "brcm,nand-soc-iproc"
+     Required properties:
+     - reg: (required) the "IDM" register range, for interrupt enable and APB
+            bus access endianness configuration
+            (required) the "EXT" register range, for interrupt status/ack
+     Optional properties:
+     - reg-names: a list of the names corresponding to the previous register
+                  ranges. Should contain "idm" and "ext".
 
 Example:
 
