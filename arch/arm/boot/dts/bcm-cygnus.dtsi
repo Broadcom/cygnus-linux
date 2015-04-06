@@ -180,6 +180,7 @@
 		compatible = "brcm,nand-soc-iproc";
 		reg = <0xf8105408 0x600>,
 		      <0x18046f00 0x20>;
+		reg-names = "idm", "ext";
 	};
 
 	nand: nand@18046000 {
