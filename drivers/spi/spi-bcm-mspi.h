@@ -45,10 +45,10 @@
 #define  B53SPI_MSPI_SPCR2_CONT_AFTER_CMD	0x00000080
 #define B53SPI_MSPI_MSPI_STATUS			0x220
 #define  B53SPI_MSPI_MSPI_STATUS_SPIF		0x00000001
-#define B53SPI_MSPI_CPTQP			0x224
-#define B53SPI_MSPI_TXRAM			0x240 /* 32 registers, up to 0x2b8 */
-#define B53SPI_MSPI_RXRAM			0x2c0 /* 32 registers, up to 0x33c */
-#define B53SPI_MSPI_CDRAM			0x340 /* 16 registers, up to 0x37c */
+#define B53SPI_MSPI_CPTQP           0x224
+#define B53SPI_MSPI_TXRAM           0x240 /* 32 registers, up to 0x2b8 */
+#define B53SPI_MSPI_RXRAM           0x2c0 /* 32 registers, up to 0x33c */
+#define B53SPI_MSPI_CDRAM           0x340 /* 16 registers, up to 0x37c */
 #define  B53SPI_CDRAM_PCS_PCS0			0x00000001
 #define  B53SPI_CDRAM_PCS_PCS1			0x00000002
 #define  B53SPI_CDRAM_PCS_PCS2			0x00000004

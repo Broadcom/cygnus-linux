@@ -7,7 +7,7 @@
 #include <linux/bcma/bcma.h>
 #include <linux/spi/spi.h>
 
-#include "spi-bcm53xx.h"
+#include "spi-bcm-mspi.h"
 
 #define BCM53XXSPI_MAX_SPI_BAUD	13500000	/* 216 MHz? */
 
@@ -162,7 +162,8 @@ static void bcm53xxspi_buf_read(struct bcm53xxspi *b53spi, u8 *r_buf,
 		int offset = b53spi->read_offset + i;
 
 		/* Data stored in the transmit register file LSB */
-		r_buf[i] = (u8)bcm53xxspi_read(b53spi, B53SPI_MSPI_RXRAM + 4 * (1 + offset * 2));
+		r_buf[i] = (u8)bcm53xxspi_read(b53spi,
+			B53SPI_MSPI_RXRAM + 4 * (1 + offset * 2));
 	}
 
 	b53spi->read_offset = 0;
@@ -215,7 +216,8 @@ static struct spi_board_info bcm53xx_info = {
 };
 
 static const struct bcma_device_id bcm53xxspi_bcma_tbl[] = {
-	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_NS_QSPI, BCMA_ANY_REV, BCMA_ANY_CLASS),
+	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_NS_QSPI, BCMA_ANY_REV,
+		BCMA_ANY_CLASS),
 	{},
 };
 MODULE_DEVICE_TABLE(bcma, bcm53xxspi_bcma_tbl);
