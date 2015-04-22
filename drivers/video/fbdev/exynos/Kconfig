@@ -16,7 +16,7 @@ if EXYNOS_VIDEO
 
 config EXYNOS_MIPI_DSI
 	bool "EXYNOS MIPI DSI driver support."
-	select GENERIC_PHY
+	depends on GENERIC_PHY
 	help
 	  This enables support for MIPI-DSI device.
 

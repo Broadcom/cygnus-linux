@@ -182,7 +182,7 @@ config USB_EHCI_HCD_SPEAR
 config USB_EHCI_HCD_STI
 	tristate "Support for ST STiHxxx on-chip EHCI USB controller"
 	depends on ARCH_STI && OF
-	select GENERIC_PHY
+	depends on GENERIC_PHY
 	select USB_EHCI_HCD_PLATFORM
 	help
 	  Enable support for the on-chip EHCI controller found on
@@ -409,7 +409,7 @@ config USB_OHCI_HCD_SPEAR
 config USB_OHCI_HCD_STI
 	tristate "Support for ST STiHxxx on-chip OHCI USB controller"
 	depends on ARCH_STI && OF
-	select GENERIC_PHY
+	depends on GENERIC_PHY
 	select USB_OHCI_HCD_PLATFORM
 	help
 	  Enable support for the on-chip OHCI controller found on
