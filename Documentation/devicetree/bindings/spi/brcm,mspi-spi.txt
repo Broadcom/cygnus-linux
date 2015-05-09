@@ -1,0 +1,39 @@
+Broadcom MSPI controller
+
+The Broadcom MSPI controller is a SPI controller found on various chips such
+as Cygnus.
+
+Required properties:
+- compatible: Must be "brcm,mspi-v0".
+
+- reg:  The first register is the physical base address of the MSPI controller.
+  The second register is the address of the MSPI interrupt control registers. It
+  is only required for chips that have a separate register set for extended
+  interrupt control. This is required for Cygnus.
+
+- interrupts: Interrupt ID of the controller.
+
+Optional properties:
+- clocks: The MSPI reference clock. If not provided then it is assumed a clock
+  is enabled by default and no control of clock-frequency (see below) is
+  possible.
+
+- clock-names: The name of the reference clock.
+
+- clock-frequency: Desired frequency of the clock. This will set the serial
+  clock baud rate (SPBR) based on the reference clock frequency. The frequency
+  of the SPBR is mspi_clk / (2 * SPBR) where SPBR is a value between 1-255
+  determined by the desired 'clock-frequency'. If not provided then the default
+  baud rate of the controller is used.
+
+Example:
+
+mspi: mspi@18047200 {
+	compatible = "brcm,mspi-v0";
+	reg = <0x18047200 0x188>,
+	      <0x180473a0 0x1c>;
+	interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&axi41_clk>;
+	clock-names = "mspi_clk";
+	clock-frequency = <12500000>;
+};
