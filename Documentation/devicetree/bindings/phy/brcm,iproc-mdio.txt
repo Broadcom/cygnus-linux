@@ -1,0 +1,15 @@
+Broadcom iProc MDC/MDIO interface
+
+The iProc MDC/MDIO interface is found on various iProc based SoCs and used to
+communicate with various types of Serdes/PHYs including Ethernet, PCIe, USB,
+and etc.
+
+Required properties:
+- compatible: Must be "brcm,iproc-mdio"
+- reg: base address and length of the MDC/MDIO block
+
+Example:
+	mdio: mdio@18002000 {
+		compatible = "brcm,iproc-mdio";
+		reg = <0x18002000 0x8>;
+	};
