@@ -54,6 +54,12 @@
 
 	/include/ "bcm-cygnus-clock.dtsi"
 
+	pcie_phy: pcie_phy@0301d0a0 {
+		compatible = "brcm,cygnus-pcie-phy";
+		reg = <0x0301d0a0 0x14>;
+		#phy-cells = <2>;
+	};
+
 	pinctrl: pinctrl@0x0301d0c8 {
 		compatible = "brcm,cygnus-pinmux";
 		reg = <0x0301d0c8 0x30>,
@@ -106,6 +112,11 @@
 		};
 	};
 
+	mdio: mdio@18002000 {
+		compatible = "brcm,iproc-mdio";
+		reg = <0x18002000 0x8>;
+	};
+
 	i2c0: i2c@18008000 {
 		compatible = "brcm,cygnus-iproc-i2c", "brcm,iproc-i2c";
 		reg = <0x18008000 0x100>;
@@ -144,6 +155,9 @@
 		ranges = <0x81000000 0 0	  0x28000000 0 0x00010000
 			  0x82000000 0 0x20000000 0x20000000 0 0x04000000>;
 
+		phys = <&pcie_phy 0 5>;
+		phy-names = "pcie-phy";
+
 		status = "disabled";
 	};
 
@@ -164,6 +178,9 @@
 		device_type = "pci";
 		ranges = <0x81000000 0 0	  0x48000000 0 0x00010000
 			  0x82000000 0 0x40000000 0x40000000 0 0x04000000>;
+
+		phys = <&pcie_phy 1 6>;
+		phy-names = "pcie-phy";
 
 		status = "disabled";
 	};
