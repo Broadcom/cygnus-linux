@@ -52,6 +52,18 @@ config PHY_EXYNOS_MIPI_VIDEO
 	  Support for MIPI CSI-2 and MIPI DSI DPHY found on Samsung S5P
 	  and EXYNOS SoCs.
 
+config PHY_IPROC_MDIO
+	bool "Broadcom iProc MDC/MDIO driver"
+	depends on ARCH_BCM_IPROC
+	default ARCH_BCM_IPROC
+	help
+	  Enable this to support the iProc generic MDC/MDIO interface found
+	  in various iProc based SoCs. The generic MDC/MDIO interface can be
+	  used to communicate with various types of Serdes/PHYs including
+	  Ethernet, PCIe, USB, and etc.
+
+	  If unsure, say N.
+
 config PHY_MVEBU_SATA
 	def_bool y
 	depends on ARCH_DOVE || MACH_DOVE || MACH_KIRKWOOD
