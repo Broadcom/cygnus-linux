@@ -1916,6 +1916,19 @@ static void s3c_hsotg_complete_in(struct dwc2_hsotg *hsotg,
 	s3c_hsotg_complete_request(hsotg, hs_ep, hs_req, 0);
 }
 
+static void s3c_hsotg_change_ep_iso_parity(struct dwc2_hsotg *hsotg,
+			u32 epctl_reg)
+{
+	u32 ctrl;
+
+	ctrl = readl(hsotg->regs + epctl_reg);
+	if (ctrl & DXEPCTL_EOFRNUM)
+		ctrl |= DXEPCTL_SETEVENFR;
+	else
+		ctrl |= DXEPCTL_SETODDFR;
+	writel(ctrl, hsotg->regs + epctl_reg);
+}
+
 /**
  * s3c_hsotg_epint - handle an in/out endpoint interrupt
  * @hsotg: The driver state
@@ -1954,12 +1967,9 @@ static void s3c_hsotg_epint(struct dwc2_hsotg *hsotg, unsigned int idx,
 		ints &= ~DXEPINT_XFERCOMPL;
 
 	if (ints & DXEPINT_XFERCOMPL) {
+		hs_ep->has_correct_parity = 1;
 		if (hs_ep->isochronous && hs_ep->interval == 1) {
-			if (ctrl & DXEPCTL_EOFRNUM)
-				ctrl |= DXEPCTL_SETEVENFR;
-			else
-				ctrl |= DXEPCTL_SETODDFR;
-			writel(ctrl, hsotg->regs + epctl_reg);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
 		}
 
 		dev_dbg(hsotg->dev,
@@ -2316,7 +2326,8 @@ void s3c_hsotg_core_init_disconnected(struct dwc2_hsotg *hsotg,
 		GINTSTS_CONIDSTSCHNG | GINTSTS_USBRST |
 		GINTSTS_RESETDET | GINTSTS_ENUMDONE |
 		GINTSTS_OTGINT | GINTSTS_USBSUSP |
-		GINTSTS_WKUPINT,
+		GINTSTS_WKUPINT |
+		GINTSTS_INCOMPL_SOIN | GINTSTS_INCOMPL_SOOUT,
 		hsotg->regs + GINTMSK);
 
 	if (using_dma(hsotg))
@@ -2581,6 +2592,40 @@ irq_retry:
 		s3c_hsotg_dump(hsotg);
 	}
 
+	if (gintsts & GINTSTS_INCOMPL_SOIN) {
+		u32 idx, epctl_reg;
+		struct s3c_hsotg_ep *hs_ep;
+
+		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOIN\n", __func__);
+		for (idx = 1; idx < hsotg->num_of_eps; idx++) {
+			hs_ep = hsotg->eps_in[idx];
+
+			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
+				continue;
+
+			epctl_reg = DIEPCTL(idx);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
+		}
+		writel(GINTSTS_INCOMPL_SOIN, hsotg->regs + GINTSTS);
+	}
+
+	if (gintsts & GINTSTS_INCOMPL_SOOUT) {
+		u32 idx, epctl_reg;
+		struct s3c_hsotg_ep *hs_ep;
+
+		dev_dbg(hsotg->dev, "%s: GINTSTS_INCOMPL_SOOUT\n", __func__);
+		for (idx = 1; idx < hsotg->num_of_eps; idx++) {
+			hs_ep = hsotg->eps_out[idx];
+
+			if (!hs_ep->isochronous || hs_ep->has_correct_parity)
+				continue;
+
+			epctl_reg = DOEPCTL(idx);
+			s3c_hsotg_change_ep_iso_parity(hsotg, epctl_reg);
+		}
+		writel(GINTSTS_INCOMPL_SOOUT, hsotg->regs + GINTSTS);
+	}
+
 	/*
 	 * if we've had fifo events, we should try and go around the
 	 * loop again to see if there's any point in returning yet.
@@ -2667,6 +2712,7 @@ static int s3c_hsotg_ep_enable(struct usb_ep *ep,
 	hs_ep->periodic = 0;
 	hs_ep->halted = 0;
 	hs_ep->interval = desc->bInterval;
+	hs_ep->has_correct_parity = 0;
 
 	if (hs_ep->interval > 1 && hs_ep->mc > 1)
 		dev_err(hsotg->dev, "MC > 1 when interval is not 1\n");
