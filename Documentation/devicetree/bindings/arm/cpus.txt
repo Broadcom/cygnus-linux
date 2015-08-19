@@ -191,6 +191,7 @@ nodes to be present and contain the properties described below.
 			    "allwinner,sun8i-a23"
 			    "arm,psci"
 			    "brcm,brahma-b15"
+			    "brcm,bcm-nsp-smp"
 			    "marvell,armada-375-smp"
 			    "marvell,armada-380-smp"
 			    "marvell,armada-390-smp"
