@@ -1,0 +1,30 @@
+Broadcom Cygnus PCIe PHY
+
+Required properties:
+- compatible: Must be "brcm,cygnus-pcie-phy"
+- reg: base address and length of the PCIe PHY block
+- #phy-cells: must be <1>
+The first cell is the PHY ID:
+0 - PCIe RC 0
+1 - PCIe RC 1
+
+Example:
+	pcie_phy: phy@0301d0a0 {
+		compatible = "brcm,cygnus-pcie-phy";
+		reg = <0x0301d0a0 0x14>;
+		#phy-cells = <1>;
+	};
+
+	pcie0: pcie@18012000 {
+		...
+		...
+		phys = <&pcie_phy 0>;
+		phy-names = "pcie-phy";
+	};
+
+	pcie1: pcie@18013000 {
+		...
+		...
+		phys = <&pcie_phy 1>;
+		phy-names = "pcie-phy";
+	};
