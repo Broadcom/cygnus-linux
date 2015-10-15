@@ -27,6 +27,8 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a9";
 			next-level-cache = <&L2>;
+			enable-method = "brcm,bcm-nsp-smp";
+			secondary-boot-reg = <0xffff0400>;
 			reg = <0x1>;
 		};
 	};
