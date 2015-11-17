@@ -42,6 +42,13 @@ static int iproc_pcie_pltfm_probe(struct platform_device *pdev)
 	pcie->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pcie);
 
+	if (of_device_is_compatible(np, "brcm,iproc-pcie"))
+		pcie->type = IPROC_PCIE_PAXB;
+	else if (of_device_is_compatible(np, "brcm,iproc-pcie-paxc"))
+		pcie->type = IPROC_PCIE_PAXC;
+	else
+		return -ENODEV;
+
 	ret = of_address_to_resource(np, 0, &reg);
 	if (ret < 0) {
 		dev_err(pcie->dev, "unable to obtain controller resources\n");
@@ -116,6 +123,7 @@ static int iproc_pcie_pltfm_remove(struct platform_device *pdev)
 
 static const struct of_device_id iproc_pcie_of_match_table[] = {
 	{ .compatible = "brcm,iproc-pcie", },
+	{ .compatible = "brcm,iproc-pcie-paxc", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, iproc_pcie_of_match_table);
