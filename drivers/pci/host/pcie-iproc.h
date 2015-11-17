@@ -14,6 +14,8 @@
 #ifndef _PCIE_IPROC_H
 #define _PCIE_IPROC_H
 
+#define IPROC_PCIE_MAX_NUM_IRQS 6
+
 /**
  * iProc PCIe interface type
  *
@@ -73,5 +75,15 @@ struct iproc_pcie {
 
 int iproc_pcie_setup(struct iproc_pcie *pcie, struct list_head *res);
 int iproc_pcie_remove(struct iproc_pcie *pcie);
+
+#ifdef CONFIG_PCI_MSI
+int iproc_msi_init(struct iproc_pcie *pcie, struct device_node *node);
+#else
+static inline int iproc_msi_init(struct iproc_pcie *pcie,
+				 struct device_node *node)
+{
+	return -ENODEV;
+}
+#endif
 
 #endif /* _PCIE_IPROC_H */
