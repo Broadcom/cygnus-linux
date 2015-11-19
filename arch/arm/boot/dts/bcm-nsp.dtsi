@@ -226,5 +226,12 @@
 			interrupts = <GIC_SPI 89 IRQ_TYPE_NONE>;
 			clock-frequency = <100000>;
 		};
+
+		pinctrl: pinctrl@3f1c0 {
+			compatible = "brcm,nsp-pinmux";
+			reg = <0x3f1c0 0x04>,
+			      <0x30028 0x04>,
+			      <0x3f408 0x04>;
+		};
 	};
 };
