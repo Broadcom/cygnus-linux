@@ -58,14 +58,30 @@
 			};
 		};
 
-		L2: l2-cache {
-			compatible = "arm,pl310-cache";
-			reg = <0x2000 0x1000>;
-			cache-unified;
-			cache-level = <2>;
+		timer@0200 {
+			compatible = "arm,cortex-a9-global-timer";
+			reg = <0x0200 0x100>;
+			interrupts = <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&periph_clk>;
 		};
 
-		gic: interrupt-controller@19021000 {
+		twd-timer@0600 {
+			compatible = "arm,cortex-a9-twd-timer";
+			reg = <0x0600 0x20>;
+			interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(2) |
+						  IRQ_TYPE_LEVEL_HIGH)>;
+			clocks = <&periph_clk>;
+		};
+
+		twd-watchdog@0620 {
+			compatible = "arm,cortex-a9-twd-wdt";
+			reg = <0x0620 0x20>;
+			interrupts = <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(2) |
+						  IRQ_TYPE_LEVEL_HIGH)>;
+			clocks = <&periph_clk>;
+		};
+
+		gic: interrupt-controller@1000 {
 			compatible = "arm,cortex-a9-gic";
 			#interrupt-cells = <3>;
 			#address-cells = <0>;
@@ -74,11 +90,11 @@
 			      <0x0100 0x100>;
 		};
 
-		timer@19020200 {
-			compatible = "arm,cortex-a9-global-timer";
-			reg = <0x0200 0x100>;
-			interrupts = <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&periph_clk>;
+		L2: l2-cache {
+			compatible = "arm,pl310-cache";
+			reg = <0x2000 0x1000>;
+			cache-unified;
+			cache-level = <2>;
 		};
 	};
 
@@ -96,11 +112,11 @@
 
 	axi {
 		compatible = "simple-bus";
-		ranges = <0x00000000 0x18000000 0x00001000>;
+		ranges = <0x00000000 0x18000000 0x0011ba08>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		uart0: serial@18000300 {
+		uart0: serial@0300 {
 			compatible = "ns16550a";
 			reg = <0x0300 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
@@ -108,12 +124,107 @@
 			status = "disabled";
 		};
 
-		uart1: serial@18000400 {
+		uart1: serial@0400 {
 			compatible = "ns16550a";
 			reg = <0x0400 0x100>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 			clock-frequency = <62499840>;
 			status = "disabled";
+		};
+
+		pcie0: pcie@12000 {
+			compatible = "brcm,iproc-pcie";
+			reg = <0x12000 0x1000>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 131 IRQ_TYPE_NONE>;
+
+			linux,pci-domain = <0>;
+
+			bus-range = <0x00 0xff>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x08000000 0x08000000 0 0x8000000>;
+
+			status = "disabled";
+		};
+
+		pcie1: pcie@13000 {
+			compatible = "brcm,iproc-pcie";
+			reg = <0x13000 0x1000>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 137 IRQ_TYPE_NONE>;
+
+			linux,pci-domain = <1>;
+
+			bus-range = <0x00 0xff>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x40000000 0x40000000 0 0x8000000>;
+
+			status = "disabled";
+		};
+
+		pcie2: pcie@14000 {
+			compatible = "brcm,iproc-pcie";
+			reg = <0x14000 0x1000>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0>;
+			interrupt-map = <0 0 0 0 &gic GIC_SPI 143 IRQ_TYPE_NONE>;
+
+			linux,pci-domain = <2>;
+
+			bus-range = <0x00 0xff>;
+
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+
+			/* Note: The HW does not support I/O resources.  So,
+			 * only the memory resource range is being specified.
+			 */
+			ranges = <0x82000000 0 0x48000000 0x48000000 0 0x8000000>;
+
+			status = "disabled";
+		};
+
+		nand: nand@26000 {
+			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
+			reg = <0x026000 0x600>,
+			      <0x11b408 0x600>,
+			      <0x026f00 0x20>;
+			reg-names = "nand", "iproc-idm", "iproc-ext";
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			brcm,nand-has-wp;
+		};
+
+		i2c0: i2c@38000 {
+			compatible = "brcm,iproc-i2c";
+			reg = <0x38000 0x50>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_NONE>;
+			clock-frequency = <100000>;
 		};
 	};
 };
