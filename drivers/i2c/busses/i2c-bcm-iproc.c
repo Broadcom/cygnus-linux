@@ -102,6 +102,10 @@ struct bcm_iproc_i2c_dev {
  */
 #define ISR_MASK (1 << IS_M_START_BUSY_SHIFT)
 
+static int bcm_iproc_i2c_init(struct bcm_iproc_i2c_dev *iproc_i2c);
+static void bcm_iproc_i2c_enable_disable(struct bcm_iproc_i2c_dev *iproc_i2c,
+					 bool enable);
+
 static irqreturn_t bcm_iproc_i2c_isr(int irq, void *data)
 {
 	struct bcm_iproc_i2c_dev *iproc_i2c = data;
@@ -149,6 +153,12 @@ static int bcm_iproc_i2c_check_status(struct bcm_iproc_i2c_dev *iproc_i2c,
 
 	default:
 		dev_dbg(iproc_i2c->device, "unknown error code=%d\n", val);
+
+		/* re-initialize i2c for recovery */
+		bcm_iproc_i2c_enable_disable(iproc_i2c, false);
+		bcm_iproc_i2c_init(iproc_i2c);
+		bcm_iproc_i2c_enable_disable(iproc_i2c, true);
+
 		return -EIO;
 	}
 }
