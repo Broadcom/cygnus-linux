@@ -76,9 +76,11 @@ config PWM_ATMEL_TCB
 
 config PWM_BCM_KONA
 	tristate "Kona PWM support"
-	depends on ARCH_BCM_MOBILE
+	depends on ARCH_BCM_MOBILE || ARCH_BCM_IPROC
+	default ARCH_BCM_IPROC
 	help
-	  Generic PWM framework driver for Broadcom Kona PWM block.
+	  Generic PWM framework driver for Broadcom Kona PWM block. The
+	  same block is also used in Broadcom iProc SoC's.
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-bcm-kona.
