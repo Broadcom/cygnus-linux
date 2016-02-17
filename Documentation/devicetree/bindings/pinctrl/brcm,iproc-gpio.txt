@@ -37,6 +37,11 @@ Optional properties:
     3  Pin-control base pin offset.
     4. number of gpio pins which are linearly mapped from pin base.
 
+- brcm,pinconf-func-off:
+    Certain iProc SoCs might have some of the PINCONF functions disabled in
+the chip when the iProc GPIO controller is integrated. This optional property
+allows unsupported PINCONF functions to be disabled
+
 Supported generic PINCONF properties in child nodes:
 
 - pins:
