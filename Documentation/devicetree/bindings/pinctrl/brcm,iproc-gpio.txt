@@ -3,8 +3,11 @@ Broadcom iProc GPIO/PINCONF Controller
 Required properties:
 
 - compatible:
-    Must be "brcm,cygnus-ccm-gpio", "brcm,cygnus-asiu-gpio",
-    "brcm,cygnus-crmu-gpio" or "brcm,iproc-gpio"
+    For Cygnus, it must be brcm,cygnus-ccm-gpio", "brcm,cygnus-asiu-gpio", or
+"brcm,cygnus-crmu-gpio"
+    For non-Cygnus iProc SoCs, it must be either "brcm,iproc-gpio-only" (if
+only GPIO is supported) or "brcm,iproc-gpio" (if both generic pinconf and GPIO
+are supported)
 
 - reg:
     Define the base and range of the I/O address space that contains SoC
