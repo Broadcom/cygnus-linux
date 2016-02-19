@@ -716,7 +716,8 @@ static const struct of_device_id iproc_gpio_of_match[] = {
 	{ .compatible = "brcm,cygnus-asiu-gpio" },
 	{ .compatible = "brcm,cygnus-crmu-gpio" },
 	{ .compatible = "brcm,iproc-gpio" },
-	{ }
+	{ .compatible = "brcm,iproc-gpio-only" },
+	{ /* sentinel */ }
 };
 
 static int iproc_gpio_probe(struct platform_device *pdev)
@@ -781,24 +782,28 @@ static int iproc_gpio_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = iproc_gpio_register_pinconf(chip);
-	if (ret) {
-		dev_err(dev, "unable to register pinconf\n");
-		goto err_rm_gpiochip;
-	}
-
-	/*
-	 * Optional DT property to disable unsupported pinconf parameters for
-	 * a particular iProc SoC
-	 */
-	ret = of_property_read_u32(dev->of_node, "brcm,pinconf-func-off",
-				   &pinconf_disable_mask);
-	if (!ret) {
-		ret = iproc_pinconf_disable_map_create(chip,
-						       pinconf_disable_mask);
+	if (!of_device_is_compatible(dev->of_node, "brcm,iproc-gpio-only")) {
+		ret = iproc_gpio_register_pinconf(chip);
 		if (ret) {
-			dev_err(dev, "unable to create pinconf disable map\n");
-			goto err_unregister_pinconf;
+			dev_err(dev, "unable to register pinconf\n");
+			goto err_rm_gpiochip;
+		}
+
+		/*
+		 * Optional DT property to disable unsupported pinconf
+		 * parameters for a particular iProc SoC
+		 */
+		ret = of_property_read_u32(dev->of_node,
+					   "brcm,pinconf-func-off",
+					   &pinconf_disable_mask);
+		if (!ret) {
+			ret = iproc_pinconf_disable_map_create(chip,
+							 pinconf_disable_mask);
+			if (ret) {
+				dev_err(dev,
+					"unable to create pinconf disable map\n");
+				goto err_unregister_pinconf;
+			}
 		}
 	}
 
