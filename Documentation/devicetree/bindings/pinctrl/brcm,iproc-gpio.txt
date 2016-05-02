@@ -4,7 +4,16 @@ Required properties:
 
 - compatible:
     Must be "brcm,cygnus-ccm-gpio", "brcm,cygnus-asiu-gpio",
-    "brcm,cygnus-crmu-gpio" or "brcm,iproc-gpio"
+    or "brcm,cygnus-crmu-gpio" for Cygnus SoCs
+
+    "brcm,iproc-gpio" for the first generation of the GPIO controller that
+    supports full-featured pinctrl and GPIO functions used in iProc based SoCs
+
+    "brcm,iproc-gpio-v2" for the second generation of the GPIO controller that
+    has the drive strength pinctrl support disabled, e.g., in the iProc NSP SoC
+
+    "brcm,iproc-gpio-v3" for the third generation of the GPIO controller that
+    has the general pinctrl support completely disabled
 
 - reg:
     Define the base and range of the I/O address space that contains SoC
