@@ -1,0 +1,39 @@
+Broadcom USB3 phy binding northstar plus SoC
+This is a child bus node of "brcm,mdio-mux-nsp" node.
+
+Required mdio bus properties:
+- reg: MDIO Bus number for the MDIO interface
+- #address-cells: must be 1
+- #size-cells: must be 0
+
+Required PHY properties:
+- compatible: should be "brcm,nsp-usb3-phy"
+- reg: Phy address in the MDIO interface
+- usb3-ctrl-syscon: handler of syscon node defining physical address
+  of usb3 control register.
+- #phy-cells: must be 0
+
+Required usb3 control properties:
+- compatible: should be "brcm,nsp-usb3-ctrl"
+- reg: offset and length of the control registers
+
+Example:
+
+	mdio@0 {
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		usb3_phy: usb3-phy@10 {
+			compatible = "brcm,nsp-usb3-phy";
+			reg = <0x10>;
+			usb3-ctrl-syscon = <&usb3_ctrl>;
+			#phy-cells = <0>;
+			status = "disabled";
+		};
+	}
+
+	usb3_ctrl: syscon@104408 {
+		compatible = "brcm,nsp-usb3-ctrl", "syscon";
+		reg = <0x104408 0x3fc>;
+	};
