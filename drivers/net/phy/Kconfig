@@ -63,6 +63,15 @@ config MDIO_BUS_MUX_BCM_IPROC
 	  child MDIO bus to a parent bus. Buses could be internal as well as
 	  external and selection logic lies inside the same multiplexer.
 
+config MDIO_BUS_MUX_BCM_NSP
+	tristate "Broadcom NSP MDIO bus controller"
+	depends on ARCH_BCM_NSP || COMPILE_TEST
+	depends on HAS_IOMEM && OF_MDIO
+	default ARCH_BCM_NSP
+	help
+	  This module provides a driver MDIO multiplexing the busses available
+	  in the Broadcom NSP SoC.
+
 config MDIO_BUS_MUX_GPIO
 	tristate "GPIO controlled MDIO bus multiplexers"
 	depends on OF_GPIO && OF_MDIO
