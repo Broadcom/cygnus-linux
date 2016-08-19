@@ -1,0 +1,20 @@
+* Broadcom's iProc Mailbox Controller
+
+Required properties:
+- compatible: Must be "brcm,iproc-mailbox"
+- reg: Defines the base address of the mailbox controller.
+- interrupts: The mailbox controller's interrupt.
+- #interrupt-cells: Must be 1.
+- interrupt-controller: Sets device as an interrupt controller.
+- #mbox-cells: Must be 1.
+
+Example:
+
+	mailbox: mailbox@3024024 {
+		compatible = "brcm,iproc-mailbox";
+		reg = <0x03024024 0x40>;
+		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
+		#interrupt-cells = <1>;
+		interrupt-controller;
+		#mbox-cells = <1>;
+	};
