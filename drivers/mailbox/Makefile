@@ -31,3 +31,5 @@ obj-$(CONFIG_HI6220_MBOX)	+= hi6220-mailbox.o
 obj-$(CONFIG_BCM_PDC_MBOX)	+= bcm-pdc-mailbox.o
 
 obj-$(CONFIG_TEGRA_HSP_MBOX)	+= tegra-hsp.o
+
+obj-$(CONFIG_BCM_IPROC_MBOX)	+= bcm-iproc-mailbox.o
