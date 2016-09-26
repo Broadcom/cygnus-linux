@@ -249,6 +249,34 @@
 			status = "disabled";
 		};
 
+		xhci: usb@29000 {
+			compatible = "generic-xhci";
+			reg = <0x29000 0x1000>;
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy>;
+			phy-names = "usb";
+			status = "disabled";
+		};
+
+		ehci0: usb@2a000 {
+			compatible = "generic-ehci";
+			reg = <0x2a000 0x100>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		ohci0: usb@2b000 {
+			compatible = "generic-ohci";
+			reg = <0x2b000 0x100>;
+			interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		mdio: mdio@32000 {
+			compatible = "brcm,iproc-mdio";
+			reg = <0x32000 0x8>;
+		};
+
 		rng: rng@33000 {
 			compatible = "brcm,bcm-nsp-rng";
 			reg = <0x33000 0x14>;
@@ -319,6 +347,30 @@
 					     "sata2";
 		};
 
+		mdio_mux: mdio-mux@3f190 {
+			compatible = "brcm,mdio-mux-nsp";
+			reg = <0x3f190 0x4>,
+			      <0x32000 0x4>;
+			reg-names = "bus-ctrl", "mgmt-ctrl";
+			mdio-parent-bus = <&mdio>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mdio@0 {
+				reg = <0x0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				usb3_phy: usb3-phy@10 {
+					compatible = "brcm,nsp-usb3-phy";
+					reg = <0x10>;
+					usb3-ctrl-syscon = <&usb3_ctrl>;
+					#phy-cells = <0>;
+					status = "disabled";
+				};
+			};
+		};
+
 		pinctrl: pinctrl@3f1c0 {
 			compatible = "brcm,nsp-pinmux";
 			reg = <0x3f1c0 0x04>,
@@ -366,6 +418,11 @@
 				phys = <&sata_phy1>;
 				phy-names = "sata-phy";
 			};
+		};
+
+		usb3_ctrl: syscon@104408 {
+			compatible = "brcm,nsp-usb3-ctrl", "syscon";
+			reg = <0x104408 0x3fc>;
 		};
 	};
 
