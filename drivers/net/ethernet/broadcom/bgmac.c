@@ -1412,50 +1412,6 @@ static void bgmac_adjust_link(struct net_device *net_dev)
 	}
 }
 
-static int bgmac_phy_connect_direct(struct bgmac *bgmac)
-{
-	struct fixed_phy_status fphy_status = {
-		.link = 1,
-		.speed = SPEED_1000,
-		.duplex = DUPLEX_FULL,
-	};
-	struct phy_device *phy_dev;
-	int err;
-
-	phy_dev = fixed_phy_register(PHY_POLL, &fphy_status, -1, NULL);
-	if (!phy_dev || IS_ERR(phy_dev)) {
-		dev_err(bgmac->dev, "Failed to register fixed PHY device\n");
-		return -ENODEV;
-	}
-
-	err = phy_connect_direct(bgmac->net_dev, phy_dev, bgmac_adjust_link,
-				 PHY_INTERFACE_MODE_MII);
-	if (err) {
-		dev_err(bgmac->dev, "Connecting PHY failed\n");
-		return err;
-	}
-
-	return err;
-}
-
-static int bgmac_phy_connect(struct bgmac *bgmac)
-{
-	struct phy_device *phy_dev;
-	char bus_id[MII_BUS_ID_SIZE + 3];
-
-	/* Connect to the PHY */
-	snprintf(bus_id, sizeof(bus_id), PHY_ID_FMT, bgmac->mii_bus->id,
-		 bgmac->phyaddr);
-	phy_dev = phy_connect(bgmac->net_dev, bus_id, &bgmac_adjust_link,
-			      PHY_INTERFACE_MODE_MII);
-	if (IS_ERR(phy_dev)) {
-		dev_err(bgmac->dev, "PHY connecton failed\n");
-		return PTR_ERR(phy_dev);
-	}
-
-	return 0;
-}
-
 int bgmac_enet_probe(struct bgmac *info)
 {
 	struct net_device *net_dev;
@@ -1507,10 +1463,7 @@ int bgmac_enet_probe(struct bgmac *info)
 
 	netif_napi_add(net_dev, &bgmac->napi, bgmac_poll, BGMAC_WEIGHT);
 
-	if (!bgmac->mii_bus)
-		err = bgmac_phy_connect_direct(bgmac);
-	else
-		err = bgmac_phy_connect(bgmac);
+	err = bgmac_phy_connect(bgmac, &bgmac_adjust_link);
 	if (err) {
 		dev_err(bgmac->dev, "Cannot connect to phy\n");
 		goto err_dma_free;

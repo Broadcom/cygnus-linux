@@ -513,6 +513,8 @@ struct bgmac {
 	u32 (*get_bus_clock)(struct bgmac *bgmac);
 	void (*cmn_maskset32)(struct bgmac *bgmac, u16 offset, u32 mask,
 			      u32 set);
+	int (*phy_connect)(struct bgmac *bgmac,
+			   void (*bgmac_adjust_link)(struct net_device *));
 };
 
 int bgmac_enet_probe(struct bgmac *info);
@@ -582,5 +584,11 @@ static inline void bgmac_mask(struct bgmac *bgmac, u16 offset, u32 mask)
 static inline void bgmac_set(struct bgmac *bgmac, u16 offset, u32 set)
 {
 	bgmac_maskset(bgmac, offset, ~0, set);
+}
+
+static inline int bgmac_phy_connect(struct bgmac *bgmac,
+				    void (*adjust_link)(struct net_device *))
+{
+	return bgmac->phy_connect(bgmac, adjust_link);
 }
 #endif /* _BGMAC_H */
