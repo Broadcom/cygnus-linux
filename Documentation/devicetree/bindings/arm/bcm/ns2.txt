@@ -7,3 +7,6 @@ Required root node property:
 
 NS2 SVK board
 compatible = "brcm,ns2-svk", "brcm,ns2";
+
+NS2 B0 SVK board
+compatible = "brcm,ns2-b0-svk", "brcm,ns2-b0";
