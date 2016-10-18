@@ -1153,12 +1153,21 @@ static int bgmac_poll(struct napi_struct *napi, int weight)
  * net_device_ops
  **************************************************/
 
+static int bgmac_phy_enable(struct phy_device *phy_dev)
+{
+	int val;
+
+	val = phy_read(phy_dev, MII_BMCR);
+	if (val < 0)
+		return val;
+
+	return phy_write(phy_dev, MII_BMCR, val & ~BMCR_PDOWN);
+}
+
 static int bgmac_open(struct net_device *net_dev)
 {
 	struct bgmac *bgmac = netdev_priv(net_dev);
 	int err = 0;
-
-	bgmac_chip_reset(bgmac);
 
 	err = bgmac_dma_init(bgmac);
 	if (err)
@@ -1175,6 +1184,10 @@ static int bgmac_open(struct net_device *net_dev)
 		return err;
 	}
 	napi_enable(&bgmac->napi);
+
+	err = bgmac_phy_enable(net_dev->phydev);
+	if (err)
+		return err;
 
 	phy_start(net_dev->phydev);
 

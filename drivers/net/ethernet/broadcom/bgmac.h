@@ -409,6 +409,8 @@
 #define BGMAC_FEAT_CC4_IF_SW_TYPE	BIT(17)
 #define BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII	BIT(18)
 #define BGMAC_FEAT_CC7_IF_TYPE_RGMII	BIT(19)
+#define BGMAC_NS2			BIT(20)
+#define BGMAC_NS2_B0			BIT(21)
 
 struct bgmac_slot_info {
 	union {
@@ -463,6 +465,7 @@ struct bgmac {
 		struct {
 			void *base;
 			void *idm_base;
+			void *nicpm_base;
 		} plat;
 		struct {
 			struct bcma_device *core;

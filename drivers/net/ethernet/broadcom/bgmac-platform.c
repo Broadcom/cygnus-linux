@@ -14,11 +14,35 @@
 #define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
 
 #include <linux/bcma/bcma.h>
+#include <linux/brcmphy.h>
 #include <linux/etherdevice.h>
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include "bgmac.h"
+
+#define NICPM_PADRING_CFG		0x00000004
+#define NICPM_IOMUX_CTRL		0x00000008
+
+#define NICPM_PADRING_CFG_INIT_VAL	0x74000000
+#define NICPM_IOMUX_CTRL_INIT_VAL	0x21880000
+#define NICPM_IOMUX_CTRL_INIT_VAL_BX	0x3196e800
+
+/* Offsets from GMAC_DEVCONTROL */
+/* PHY registers */
+#define GPHY_EXP_DATA_REG           0x15
+#define GPHY_EXP_SELECT_REG         0x17
+#define GPHY_MISC_CTRL_REG          0x18  /* shadow 7 */
+#define GPHY_CLK_ALIGNCTRL_REG      0x1C  /* Shadow 3 */
+
+/* Initialization values of above PHY registers */
+#define GPHY_EXP_DATA_REG_VAL                  0x11B
+#define GPHY_EXP_SELECT_REG_VAL_LANE_SWAP      0x0F09
+#define GPHY_EXP_SELECT_REG_VAL_BROADREACH_OFF 0x0F90
+#define GPHY_MISC_CTRL_REG_SKEW_DISABLE_VAL    0xF0E7
+#define GPHY_CLK_GTX_DELAY_DISALE_WR_VAL       0x8c00
+#define GPHY_MISC_CTRL_REG_DELAY_DISABLE_VAL   0x7007
+#define GPHY_CLK_GTX_DELAY_DISALE_RD_VAL       0x0c00
 
 static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
 {
@@ -87,10 +111,95 @@ static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offset,
 	WARN_ON(1);
 }
 
+static int bgmac_phy54810_rgmii_sync(struct phy_device *phy_dev)
+{
+	int rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_BROADREACH_OFF);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG, 0);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_SELECT_REG,
+		       GPHY_EXP_SELECT_REG_VAL_LANE_SWAP);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_EXP_DATA_REG,
+		       GPHY_EXP_DATA_REG_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_MISC_CTRL_REG,
+		       GPHY_MISC_CTRL_REG_SKEW_DISABLE_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_CLK_ALIGNCTRL_REG,
+		       GPHY_CLK_GTX_DELAY_DISALE_WR_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_MISC_CTRL_REG,
+		       GPHY_MISC_CTRL_REG_DELAY_DISABLE_VAL);
+	if (rc < 0)
+		return rc;
+
+	rc = phy_write(phy_dev, GPHY_CLK_ALIGNCTRL_REG,
+		       GPHY_CLK_GTX_DELAY_DISALE_RD_VAL);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static void bgmac_phy_init(struct bgmac *bgmac)
+{
+	if (!bgmac->plat.nicpm_base)
+		return;
+
+	/* SET RGMII IO CONFIG */
+	writel(NICPM_PADRING_CFG_INIT_VAL,
+	       bgmac->plat.nicpm_base + NICPM_PADRING_CFG);
+
+	/* Give some time so that values take effect */
+	usleep_range(10, 100);
+
+	/* SET IO MUX CONTROL */
+	if (bgmac->feature_flags & BGMAC_NS2)
+		writel(NICPM_IOMUX_CTRL_INIT_VAL,
+		       bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
+	else if (bgmac->feature_flags & BGMAC_NS2_B0)
+		writel(NICPM_IOMUX_CTRL_INIT_VAL_BX,
+		       bgmac->plat.nicpm_base + NICPM_IOMUX_CTRL);
+	else
+		WARN_ON(1);
+
+	usleep_range(10, 100);
+}
+
 static int platform_phy_connect(struct bgmac *bgmac,
 				void (*bgmac_adjust_link)(struct net_device *))
 {
 	struct phy_device *phy_dev;
+
+	bgmac_phy_init(bgmac);
+
+	if (bgmac->feature_flags & (BGMAC_NS2 | BGMAC_NS2_B0)) {
+		int rc;
+
+		/* Register PHY BCM54810 Fix-ups */
+		rc = phy_register_fixup_for_uid(PHY_ID_BCM54810, 0xfffffff0,
+						bgmac_phy54810_rgmii_sync);
+		if (rc) {
+			dev_err(bgmac->dev, "Phy not found\n");
+			return -ENODEV;
+		}
+	}
 
 	phy_dev = of_phy_get_and_connect(bgmac->net_dev, bgmac->dev->of_node,
 					 bgmac_adjust_link);
@@ -142,6 +251,11 @@ static int bgmac_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, bgmac);
 
+	if (of_device_is_compatible(np, "brcm,ns2-amac"))
+		bgmac->feature_flags |= BGMAC_NS2;
+	else if (of_device_is_compatible(np, "brcm,ns2-b0-amac"))
+		bgmac->feature_flags |= BGMAC_NS2_B0;
+
 	/* Set the features of the 4707 family */
 	bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
 	bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
@@ -184,6 +298,14 @@ static int bgmac_probe(struct platform_device *pdev)
 	if (IS_ERR(bgmac->plat.idm_base))
 		return PTR_ERR(bgmac->plat.idm_base);
 
+	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nicpm_base");
+	if (regs) {
+		bgmac->plat.nicpm_base = devm_ioremap_resource(&pdev->dev,
+							       regs);
+		if (IS_ERR(bgmac->plat.nicpm_base))
+			return PTR_ERR(bgmac->plat.nicpm_base);
+	}
+
 	bgmac->read = platform_bgmac_read;
 	bgmac->write = platform_bgmac_write;
 	bgmac->idm_read = platform_bgmac_idm_read;
@@ -215,6 +337,8 @@ static int bgmac_remove(struct platform_device *pdev)
 static const struct of_device_id bgmac_of_enet_match[] = {
 	{.compatible = "brcm,amac",},
 	{.compatible = "brcm,nsp-amac",},
+	{.compatible = "brcm,ns2-amac",},
+	{.compatible = "brcm,ns2-b0-amac",},
 	{},
 };
 
