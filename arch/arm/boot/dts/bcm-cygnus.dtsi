@@ -123,10 +123,7 @@
 
 		mailbox: mailbox@03024024 {
 			compatible = "brcm,iproc-mailbox";
-			reg = <0x03024024 0x40>;
-			interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
-			#interrupt-cells = <1>;
-			interrupt-controller;
+			reg = <0x03024024 0x8>;
 			#mbox-cells = <1>;
 		};
 
@@ -137,9 +134,6 @@
 			ngpios = <6>;
 			#gpio-cells = <2>;
 			gpio-controller;
-			interrupt-controller;
-			interrupt-parent = <&mailbox>;
-			interrupts = <0>;
 		};
 
 		i2c0: i2c@18008000 {
