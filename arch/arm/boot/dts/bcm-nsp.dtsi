@@ -413,6 +413,16 @@
 			      <0x3f408 0x04>;
 		};
 
+		xhci: xhci@29000 {
+			#usb-cells = <0>;
+
+			compatible = "generic-xhci";
+			reg = <0x29000 0x1000>;
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			phys = <&usb3_phy>;
+			phy-names = "usb3-phy";
+		};
+
 		sata_phy: sata_phy@40100 {
 			compatible = "brcm,iproc-nsp-sata-phy";
 			reg = <0x40100 0x340>;
@@ -453,6 +463,14 @@
 				phys = <&sata_phy1>;
 				phy-names = "sata-phy";
 			};
+		};
+
+		usb3_phy: usb3-phy@104000 {
+			compatible = "brcm,ns-bx-usb3-phy";
+			reg = <0x104000 0x1000>,
+			      <0x032000 0x1000>;
+			reg-names = "dmp", "ccb-mii";
+			#phy-cells = <0>;
 		};
 	};
 
