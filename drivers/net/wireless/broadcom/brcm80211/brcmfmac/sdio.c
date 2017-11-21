@@ -2790,6 +2790,10 @@ static int brcmf_sdio_readconsole(struct brcmf_sdio *bus)
 	u8 line[CONSOLE_LINE_MAX], ch;
 	u32 n, idx, addr;
 	int rv;
+	unsigned int left_to_read;
+	unsigned int offset;
+	unsigned int cur_read_size;
+	unsigned int log_size = bus->sdiodev->settings->log_size;
 
 	/* Don't do anything until FWREADY updates console address */
 	if (bus->console_addr == 0)
@@ -2823,9 +2827,38 @@ static int brcmf_sdio_readconsole(struct brcmf_sdio *bus)
 
 	/* Read the console buffer */
 	addr = le32_to_cpu(c->log_le.buf);
-	rv = brcmf_sdiod_ramrw(bus->sdiodev, false, addr, c->buf, c->bufsize);
-	if (rv < 0)
-		return rv;
+
+	if (log_size > 0) {
+		/* limit the amount of data to read in case wifi chip has
+		 * restrictions
+		 */
+		left_to_read = c->bufsize;
+		offset = 0;
+		while (left_to_read) {
+			cur_read_size = (left_to_read > log_size) ?
+					 log_size :
+					 left_to_read;
+
+			rv = brcmf_sdiod_ramrw(bus->sdiodev,
+					       false,
+					       addr + offset,
+					       c->buf + offset,
+					       cur_read_size);
+			if (rv < 0)
+				return rv;
+
+			left_to_read -= cur_read_size;
+			offset += cur_read_size;
+		}
+	} else {
+		rv = brcmf_sdiod_ramrw(bus->sdiodev,
+				       false,
+				       addr,
+				       c->buf,
+				       c->bufsize);
+		if (rv < 0)
+			return rv;
+	}
 
 	while (c->last != idx) {
 		for (n = 0; n < CONSOLE_LINE_MAX - 2; n++) {
